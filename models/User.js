@@ -11,7 +11,10 @@ const userSchema = new mongoose.Schema({
   cart: [{
     foodId: { type: mongoose.Schema.Types.ObjectId, ref: 'Food' },
     quantity: { type: Number, default: 1 }
-  }]
+  }],
+  resetPasswordToken: String,
+  resetPasswordExpire: Date,
+  tokenBlacklist: [String] // For logout functionality
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

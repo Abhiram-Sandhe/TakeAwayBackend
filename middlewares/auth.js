@@ -15,7 +15,12 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'User not found' });
     }
 
+    if (user.tokenBlacklist.includes(token)) {
+      return res.status(401).json({ message: 'Token has been invalidated' });
+    }
+
     req.user = user;
+    req.token = token;
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid token' });
