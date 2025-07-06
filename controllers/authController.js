@@ -18,16 +18,6 @@ const register = async (req, res) => {
     const user = new User({ name, email, password, role, phone, address });
     await user.save();
 
-    if (role === 'restaurant') {
-      const restaurant = new Restaurant({
-        name: `${name}'s Restaurant`,
-        owner: user._id,
-        address: address || 'Not specified',
-        phone: phone || 'Not specified'
-      });
-      await restaurant.save();
-    }
-
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'secret',
@@ -198,3 +188,6 @@ const resetPassword = async (req, res) => {
 };
 
 module.exports = { register, login, logout, forgotPassword, resetPassword };
+
+
+
