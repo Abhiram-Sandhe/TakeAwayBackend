@@ -2,6 +2,71 @@ const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
 const Food = require('../models/Food');
 const bcrypt = require('bcrypt');
+
+// Create a new user (Admin only)
+const createUser = async (req, res) => {
+  try {
+    // Optional: Validate admin role
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admins only.',
+      });
+    }
+
+    const { name, email, phone, password, role, status } = req.body;
+
+    if (!name || !email || !phone || !password || !role || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required.',
+      });
+    }
+
+    // Check for existing user
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists.',
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      name,
+      email,
+      phone,
+      password: hashedPassword,
+      role,
+      status,
+    });
+
+    await newUser.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully.',
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        status: newUser.status,
+      },
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.',
+      error: error.message,
+    });
+  }
+};
+
 // Get all users
 const getUsers = async (req, res) => {
   try {
@@ -317,6 +382,7 @@ const getStats = async (req, res) => {
 };
 
 module.exports = {
+  createUser,
   getUsers,
   deleteUser,
   getRestaurants,

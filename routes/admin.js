@@ -1,6 +1,7 @@
 const express = require('express');
 const { auth, authorize } = require('../middlewares/auth.js');
 const {
+  createUser,
   getUsers,
   deleteUser,
   getRestaurants,
@@ -15,6 +16,7 @@ const Food = require('../models/Food');
 const router = express.Router();
 
 // User management routes
+router.post('/users', auth, authorize('admin'), createUser);
 router.get('/users', auth, authorize('admin'), getUsers);
 router.delete('/users/:userId', auth, authorize('admin'), deleteUser);
 
