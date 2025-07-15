@@ -2,6 +2,7 @@ const express = require('express');
 const { auth, authorize } = require('../middlewares/auth.js');
 const {
   createUser,
+  updateUser,
   getUsers,
   deleteUser,
   getRestaurants,
@@ -18,6 +19,7 @@ const router = express.Router();
 // User management routes
 router.post('/users', auth, authorize('admin'), createUser);
 router.get('/users', auth, authorize('admin'), getUsers);
+router.put('/users/:userId', auth, authorize('admin'), updateUser);
 router.delete('/users/:userId', auth, authorize('admin'), deleteUser);
 
 // Restaurant management routes (ONLY ADMIN can create and delete restaurants)

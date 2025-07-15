@@ -86,6 +86,67 @@ const getUsers = async (req, res) => {
   }
 };
 
+//Update users
+const updateUser = async (req, res) => {
+  try {
+    // Optional: Validate admin role
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admins only.',
+      });
+    }
+
+    const { userId } = req.params;
+    const { name, email, phone, role, status } = req.body;
+
+    if (!name || !email || !phone || !role || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required.',
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    // Update fields
+    user.name = name;
+    user.email = email;
+    user.phone = phone;
+    user.role = role;
+    user.status = status;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User updated successfully.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+      },
+    });
+
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.',
+      error: error.message,
+    });
+  }
+};
+
 // Delete user
 const deleteUser = async (req, res) => {
   try {
@@ -383,6 +444,7 @@ const getStats = async (req, res) => {
 
 module.exports = {
   createUser,
+  updateUser,
   getUsers,
   deleteUser,
   getRestaurants,
