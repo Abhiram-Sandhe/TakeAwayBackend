@@ -14,7 +14,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const { name, email, phone, password, role, status } = req.body;
+    const { name, email, phone, password, role, status, emailVerified  } = req.body;
 
     if (!name || !email || !phone || !password || !role || !status) {
       return res.status(400).json({
@@ -32,16 +32,14 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = new User({
       name,
       email,
       phone,
-      password: hashedPassword,
+      password,
       role,
       status,
+      emailVerified: emailVerified === true || emailVerified === 'true',
     });
 
     await newUser.save();
@@ -55,6 +53,7 @@ const createUser = async (req, res) => {
         email: newUser.email,
         role: newUser.role,
         status: newUser.status,
+        emailVerified: newUser.emailVerified,
       },
     });
   } catch (error) {
