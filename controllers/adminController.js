@@ -213,7 +213,6 @@ const createRestaurant = async (req, res) => {
       address, 
       phone, 
       cuisine, 
-    //   openingHours,
       ownerName,
       ownerEmail,
       ownerPhone,
@@ -237,8 +236,7 @@ const createRestaurant = async (req, res) => {
       });
     }
 
-    // Create restaurant owner account
-    // const hashedPassword = await bcrypt.hash(ownerPassword, 10);
+    // Create user
     const owner = new User({
       name: ownerName,
       email: ownerEmail,
@@ -246,8 +244,15 @@ const createRestaurant = async (req, res) => {
       phone: ownerPhone,
       role: 'restaurant'
     });
-
     await owner.save();
+
+    // Handle image upload
+    let imageUrl = null;
+    if (req.file) {
+      if (req.file.path) {
+        imageUrl = req.file.path;
+      }
+    }
 
     // Create restaurant
     const restaurant = new Restaurant({
@@ -257,21 +262,13 @@ const createRestaurant = async (req, res) => {
       phone,
       cuisine: cuisine || 'General',
       owner: owner._id,
-    //   openingHours: openingHours || {
-    //     monday: { open: '09:00', close: '22:00', isOpen: true },
-    //     tuesday: { open: '09:00', close: '22:00', isOpen: true },
-    //     wednesday: { open: '09:00', close: '22:00', isOpen: true },
-    //     thursday: { open: '09:00', close: '22:00', isOpen: true },
-    //     friday: { open: '09:00', close: '22:00', isOpen: true },
-    //     saturday: { open: '09:00', close: '22:00', isOpen: true },
-    //     sunday: { open: '09:00', close: '22:00', isOpen: true }
-    //   }
+      image: imageUrl
     });
 
     await restaurant.save();
     await restaurant.populate('owner', 'name email phone');
 
-    res.status(201).json({
+    const response = {
       success: true,
       message: 'Restaurant and owner created successfully.',
       restaurant,
@@ -281,18 +278,47 @@ const createRestaurant = async (req, res) => {
         email: owner.email,
         phone: owner.phone
       }
-    });
+    };
+
+    if (req.file && !req.file.path) {
+      response.warning = 'Image was uploaded but Cloudinary is not available. Image not saved to cloud storage.';
+    }
+
+    res.status(201).json(response);
+
   } catch (error) {
     console.error('Create restaurant error:', error);
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate entry found',
+        field: Object.keys(error.keyPattern || {})[0]
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Server error.',
+      message: 'Server error occurred',
       error: error.message
     });
   }
 };
 
 // Update restaurant
+
+
 const updateRestaurant = async (req, res) => {
   try {
     const { restaurantId } = req.params;

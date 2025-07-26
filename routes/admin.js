@@ -1,5 +1,6 @@
 const express = require('express');
 const { auth, authorize } = require('../middlewares/auth.js');
+const { uploadSingle } = require('../middlewares/upload');
 const {
   createUser,
   updateUser,
@@ -24,7 +25,7 @@ router.delete('/users/:userId', auth, authorize('admin'), deleteUser);
 
 // Restaurant management routes (ONLY ADMIN can create and delete restaurants)
 router.get('/restaurants', auth, authorize('admin'), getRestaurants);
-router.post('/restaurants', auth, authorize('admin'), createRestaurant); // ONLY ADMIN can create
+router.post('/restaurants', auth, authorize('admin'), uploadSingle('image'), createRestaurant); // ONLY ADMIN can create
 router.put('/restaurants/:restaurantId', auth, authorize('admin'), updateRestaurant);
 router.patch('/restaurants/:restaurantId/toggle-status', auth, authorize('admin'), toggleRestaurantStatus);
 router.delete('/restaurants/:restaurantId', auth, authorize('admin'), deleteRestaurant); // ONLY ADMIN can delete
