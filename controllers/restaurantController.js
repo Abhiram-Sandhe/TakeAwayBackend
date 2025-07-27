@@ -5,20 +5,29 @@ const User = require('../models/User');
 const getProfile = async (req, res) => {
   try {
     let restaurant;
-    
+
     if (req.user.role === 'admin') {
-      // Admin can get any restaurant profile
+      // Admin must provide restaurantId
       const { restaurantId } = req.query;
+
       if (!restaurantId) {
         return res.status(400).json({
           success: false,
           message: 'Restaurant ID is required for admin.'
         });
       }
-      restaurant = await Restaurant.findById(restaurantId).populate('owner', 'name email phone');
-    } else {
+
+      restaurant = await Restaurant.findById(restaurantId)
+        .populate('owner', 'name email phone');
+    } else if (req.user.role === 'restaurant') {
       // Restaurant owner gets their own profile
-      restaurant = await Restaurant.findOne({ owner: req.user._id }).populate('owner', 'name email phone');
+      restaurant = await Restaurant.findOne({ owner: req.user._id })
+        .populate('owner', 'name email phone');
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only admins and restaurant owners can view profiles.'
+      });
     }
 
     if (!restaurant) {
@@ -28,10 +37,11 @@ const getProfile = async (req, res) => {
       });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
       restaurant
     });
+
   } catch (error) {
     console.error('Get restaurant profile error:', error);
     res.status(500).json({
@@ -42,10 +52,11 @@ const getProfile = async (req, res) => {
   }
 };
 
+
 // Update restaurant (restaurant owners can only update their own restaurant)
 const updateRestaurant = async (req, res) => {
   try {
-    const { name, description, address, phone, cuisine, openingHours } = req.body;
+    const { name, description, address, phone, cuisine } = req.body;
     
     let restaurant;
     
@@ -59,9 +70,14 @@ const updateRestaurant = async (req, res) => {
         });
       }
       restaurant = await Restaurant.findById(restaurantId);
-    } else {
+    } else if (req.user.role === 'restaurant') {
       // Restaurant owner updates their own restaurant only
       restaurant = await Restaurant.findOne({ owner: req.user._id });
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only restaurant owners and admins can update restaurants.'
+      });
     }
 
     if (!restaurant) {
@@ -71,27 +87,75 @@ const updateRestaurant = async (req, res) => {
       });
     }
 
-    // Update fields
+    // Update basic fields if provided
     if (name) restaurant.name = name;
     if (description) restaurant.description = description;
     if (address) restaurant.address = address;
     if (phone) restaurant.phone = phone;
     if (cuisine) restaurant.cuisine = cuisine;
-    if (openingHours) restaurant.openingHours = openingHours;
+
+    // Handle image upload
+    let imageUrl = restaurant.image; // Keep existing image by default
+    let imageWarning = null;
+
+    if (req.file) {
+      if (req.file.path) {
+        // New image uploaded successfully to Cloudinary
+        imageUrl = req.file.path;
+      } else {
+        // Image was uploaded but Cloudinary is not available
+        imageWarning = 'Image was uploaded but Cloudinary is not available. Image not updated.';
+      }
+    }
+
+    // Update image if a new one was provided
+    if (req.file && req.file.path) {
+      restaurant.image = imageUrl;
+    }
 
     await restaurant.save();
     await restaurant.populate('owner', 'name email phone');
 
-    res.json({
+    const response = {
       success: true,
       message: 'Restaurant updated successfully.',
       restaurant
-    });
+    };
+
+    // Add warning if image upload had issues
+    if (imageWarning) {
+      response.warning = imageWarning;
+    }
+
+    res.json(response);
+
   } catch (error) {
     console.error('Update restaurant error:', error);
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
+
+    // Handle duplicate entry errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate entry found',
+        field: Object.keys(error.keyPattern || {})[0]
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Server error.',
+      message: 'Server error occurred',
       error: error.message
     });
   }
