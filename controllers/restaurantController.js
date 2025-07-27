@@ -51,8 +51,6 @@ const getProfile = async (req, res) => {
     });
   }
 };
-
-
 // Update restaurant (restaurant owners can only update their own restaurant)
 const updateRestaurant = async (req, res) => {
   try {
@@ -153,6 +151,57 @@ const updateRestaurant = async (req, res) => {
       });
     }
 
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred',
+      error: error.message
+    });
+  }
+};
+
+const toggleRestaurantStatus = async (req, res) => {
+  try {
+    let restaurant;
+    
+    if (req.user.role === 'admin') {
+      // Admin can toggle any restaurant status
+      const { restaurantId } = req.body;
+      if (!restaurantId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Restaurant ID is required for admin.'
+        });
+      }
+      restaurant = await Restaurant.findById(restaurantId);
+    } else if (req.user.role === 'restaurant') {
+      // Restaurant owner toggles their own restaurant status
+      restaurant = await Restaurant.findOne({ owner: req.user._id });
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only restaurant owners and admins can toggle restaurant status.'
+      });
+    }
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found.'
+      });
+    }
+
+    // Toggle the status
+    restaurant.isOpen = !restaurant.isOpen;
+    await restaurant.save();
+
+    res.json({
+      success: true,
+      message: `Restaurant is now ${restaurant.isOpen ? 'open' : 'closed'}.`,
+      isOpen: restaurant.isOpen
+    });
+
+  } catch (error) {
+    console.error('Toggle restaurant status error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error occurred',
@@ -366,6 +415,7 @@ const deleteFood = async (req, res) => {
 module.exports = {
   getProfile,
   updateRestaurant, // Only update function - no create
+  toggleRestaurantStatus,
   addFood,
   getFoods,
   updateFood,

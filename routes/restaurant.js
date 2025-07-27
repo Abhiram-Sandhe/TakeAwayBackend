@@ -5,6 +5,7 @@ const {
   getProfile,
   createRestaurant,
   updateRestaurant,
+  toggleRestaurantStatus,
   addFood,
   getFoods,
   updateFood,
@@ -14,7 +15,9 @@ const {
 const router = express.Router();
 
 router.get('/profile', auth, authorize('restaurant'), getProfile);
-router.put('/update', auth, authorize('restaurant'),uploadSingle('image'), updateRestaurant); // Only update - no create
+router.put('/update', auth, authorize('restaurant'),uploadSingle('image'), updateRestaurant);
+// In your restaurant routes file
+router.patch('/toggle-status', auth, authorize('restaurant'), toggleRestaurantStatus);
 
 // Food routes (restaurant owners only - admins use admin routes)
 router.post('/food', auth, authorize('restaurant'), addFood);
