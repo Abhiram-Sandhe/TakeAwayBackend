@@ -33,31 +33,6 @@ const foodSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  ingredients: [{
-    type: String,
-    trim: true
-  }],
-  preparationTime: {
-    type: Number, // in minutes
-    default: 30
-  },
-  calories: {
-    type: Number,
-    min: 0
-  },
-  isVegetarian: {
-    type: Boolean,
-    default: false
-  },
-  isVegan: {
-    type: Boolean,
-    default: false
-  },
-  spiceLevel: {
-    type: String,
-    enum: ['mild', 'medium', 'spicy', 'extra-spicy'],
-    default: 'medium'
-  }
 }, { 
   timestamps: true 
 });

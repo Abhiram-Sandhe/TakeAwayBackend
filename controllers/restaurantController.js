@@ -213,8 +213,11 @@ const toggleRestaurantStatus = async (req, res) => {
 // Add food item
 const addFood = async (req, res) => {
   try {
-    const { name, description, price, category, isVegetarian, isVegan, preparationTime, ingredients } = req.body;
-
+    const { name, description, price, category } = req.body;
+    
+    // Get image URL from uploaded file (if any)
+    const imageUrl = req.file ? req.file.path : null;
+    
     // Validate required fields
     if (!name || !description || !price || !category) {
       return res.status(400).json({
@@ -222,57 +225,85 @@ const addFood = async (req, res) => {
         message: 'Please provide all required fields: name, description, price, category.'
       });
     }
-
-    let restaurant;
     
-    if (req.user.role === 'admin') {
-      // Admin can add food to any restaurant
-      const { restaurantId } = req.body;
-      if (!restaurantId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Restaurant ID is required for admin.'
-        });
-      }
-      restaurant = await Restaurant.findById(restaurantId);
-    } else {
-      // Restaurant owner adds food to their own restaurant
-      restaurant = await Restaurant.findOne({ owner: req.user._id });
+    // Validate price
+    if (price <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Price must be greater than 0.'
+      });
     }
-
+    
+    // Find restaurant owned by the current user
+    const restaurant = await Restaurant.findOne({ owner: req.user._id });
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: 'Restaurant not found.'
+        message: 'Restaurant not found. Please create a restaurant first before adding food items.'
       });
     }
 
+    // Create food item with restaurant ID
     const food = new Food({
-      name,
-      description,
+      name: name.trim(),
+      description: description.trim(),
       price: parseFloat(price),
-      category,
-      isVegetarian: isVegetarian || false,
-      isVegan: isVegan || false,
-      preparationTime: preparationTime || 30,
-      ingredients: ingredients || [],
-      restaurant: restaurant._id
+      category: category.trim(),
+      image: imageUrl, // Use uploaded image URL
+      restaurant: restaurant._id // Explicitly setting restaurant ID
     });
 
+    // Save the food item
     await food.save();
-    await food.populate('restaurant', 'name');
+    
+    // Populate restaurant details for response
+    await food.populate('restaurant', 'name location');
+
+    // Verify that restaurant ID was properly set
+    if (!food.restaurant) {
+      throw new Error('Failed to associate food item with restaurant');
+    }
 
     res.status(201).json({
       success: true,
       message: 'Food item added successfully.',
-      food
+      food: {
+        _id: food._id,
+        name: food.name,
+        description: food.description,
+        price: food.price,
+        category: food.category,
+        image: food.image,
+        restaurant: food.restaurant,
+        createdAt: food.createdAt,
+        updatedAt: food.updatedAt
+      }
     });
+    
   } catch (error) {
     console.error('Add food error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error.',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Food item with this name already exists in your restaurant.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Server error.',
-      error: error.message
+      message: 'Server error while adding food item.',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };

@@ -1,6 +1,9 @@
 const express = require('express');
 const { auth, authorize } = require('../middlewares/auth.js');
-const { uploadSingle } = require('../middlewares/upload'); 
+const { 
+  uploadRestaurantImage, 
+  uploadFoodImage 
+} = require('../middlewares/upload'); 
 const {
   getProfile,
   createRestaurant,
@@ -14,15 +17,20 @@ const {
 
 const router = express.Router();
 
+// Restaurant profile routes
 router.get('/profile', auth, authorize('restaurant'), getProfile);
-router.put('/update', auth, authorize('restaurant'),uploadSingle('image'), updateRestaurant);
-// In your restaurant routes file
+
+// Restaurant image upload - uses 'restaurants' folder
+router.put('/update', auth, authorize('restaurant'), uploadRestaurantImage('image'), updateRestaurant);
+
+// Toggle restaurant status
 router.patch('/toggle-status', auth, authorize('restaurant'), toggleRestaurantStatus);
 
-// Food routes (restaurant owners only - admins use admin routes)
-router.post('/food', auth, authorize('restaurant'), addFood);
+
+// Food image upload - uses 'food-items' folder  
+router.post('/food', auth, authorize('restaurant'), uploadFoodImage('image'), addFood);
 router.get('/foods', auth, authorize('restaurant'), getFoods);
-router.put('/food/:foodId', auth, authorize('restaurant'), updateFood);
-router.delete('/food/:foodId', auth, authorize('restaurant'), deleteFood);
+router.put('/food/:id', auth, authorize('restaurant'), uploadFoodImage('image'), updateFood);
+router.delete('/food/:id', auth, authorize('restaurant'), deleteFood);
 
 module.exports = router;
