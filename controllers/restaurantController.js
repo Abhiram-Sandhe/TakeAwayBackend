@@ -51,7 +51,7 @@ const getProfile = async (req, res) => {
     });
   }
 };
-// Update restaurant (restaurant owners can only update their own restaurant)
+//update restaurant
 const updateRestaurant = async (req, res) => {
   try {
     const { name, description, address, phone, cuisine } = req.body;
@@ -379,54 +379,206 @@ const getFoods = async (req, res) => {
   }
 };
 
-// Update food
-const updateFood = async (req, res) => {
+
+const toggleFoodAvailability = async (req, res) => {
   try {
     const { foodId } = req.params;
-    const { name, description, price, category, isVegetarian, isVegan, preparationTime, ingredients, isAvailable } = req.body;
+    const { isAvailable } = req.body;
 
-    const food = await Food.findById(foodId).populate('restaurant');
-    
+    // Validate foodId
+    if (!foodId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Food ID is required.'
+      });
+    }
+
+    // Validate isAvailable
+    if (typeof isAvailable !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isAvailable must be a boolean value.'
+      });
+    }
+
+    let food;
+
+    if (req.user.role === 'admin') {
+      // Admin can toggle any food item
+      food = await Food.findById(foodId).populate('restaurant', 'name location');
+    } else if (req.user.role === 'restaurant') {
+      // Restaurant owner can only toggle their own food items
+      const restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found.'
+        });
+      }
+
+      food = await Food.findOne({ 
+        _id: foodId, 
+        restaurant: restaurant._id 
+      }).populate('restaurant', 'name location');
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only restaurant owners and admins can toggle food availability.'
+      });
+    }
+
     if (!food) {
       return res.status(404).json({
         success: false,
-        message: 'Food item not found.'
+        message: 'Food item not found or you do not have permission to modify it.'
       });
     }
 
-    // Check if user has permission to update this food
-    if (req.user.role !== 'admin' && food.restaurant.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You do not have permission to update this food item.'
-      });
-    }
-
-    // Update fields
-    if (name) food.name = name;
-    if (description) food.description = description;
-    if (price) food.price = parseFloat(price);
-    if (category) food.category = category;
-    if (isVegetarian !== undefined) food.isVegetarian = isVegetarian;
-    if (isVegan !== undefined) food.isVegan = isVegan;
-    if (preparationTime) food.preparationTime = preparationTime;
-    if (ingredients) food.ingredients = ingredients;
-    if (isAvailable !== undefined) food.isAvailable = isAvailable;
-
+    // Update availability
+    food.isAvailable = isAvailable;
     await food.save();
-    await food.populate('restaurant', 'name');
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: 'Food item updated successfully.',
-      food
+      message: `Food item ${isAvailable ? 'marked as available' : 'marked as unavailable'} successfully.`,
+      food: {
+        _id: food._id,
+        name: food.name,
+        description: food.description,
+        price: food.price,
+        category: food.category,
+        image: food.image,
+        isAvailable: food.isAvailable,
+        restaurant: food.restaurant,
+        createdAt: food.createdAt,
+        updatedAt: food.updatedAt
+      }
     });
+
   } catch (error) {
-    console.error('Update food error:', error);
+    console.error('Toggle food availability error:', error);
+    
     res.status(500).json({
       success: false,
-      message: 'Server error.',
-      error: error.message
+      message: 'Server error while toggling food availability.',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+// Update food
+const updateFood = async (req, res) => {
+  try {
+    const foodId = req.params.id;
+    const { name, description, price, category, isAvailable } = req.body;
+
+    // Get new image URL from uploaded file (if any)
+    const imageUrl = req.file ? req.file.path : undefined;
+
+    // Validate foodId
+    if (!foodId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Food ID is required.'
+      });
+    }
+
+    let food;
+
+    if (req.user.role === 'admin') {
+      // Admin can update any food item
+      food = await Food.findById(foodId);
+    } else if (req.user.role === 'restaurant') {
+      // Restaurant owner can only update their own food items
+      const restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found.'
+        });
+      }
+
+      food = await Food.findOne({ 
+        _id: foodId, 
+        restaurant: restaurant._id 
+      });
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only restaurant owners and admins can update food items.'
+      });
+    }
+
+    if (!food) {
+      return res.status(404).json({
+        success: false,
+        message: 'Food item not found or you do not have permission to modify it.'
+      });
+    }
+
+    // Update fields if provided
+    if (name !== undefined) food.name = name.trim();
+    if (description !== undefined) food.description = description.trim();
+    if (price !== undefined) {
+      if (price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Price must be greater than 0.'
+        });
+      }
+      food.price = parseFloat(price);
+    }
+    if (category !== undefined) food.category = category.trim();
+    if (imageUrl !== undefined) food.image = imageUrl;
+    if (isAvailable !== undefined) food.isAvailable = Boolean(isAvailable);
+
+    // Save the updated food item
+    await food.save();
+    
+    // Populate restaurant details for response
+    await food.populate('restaurant', 'name location');
+
+    res.status(200).json({
+      success: true,
+      message: 'Food item updated successfully.',
+      food: {
+        _id: food._id,
+        name: food.name,
+        description: food.description,
+        price: food.price,
+        category: food.category,
+        image: food.image,
+        isAvailable: food.isAvailable,
+        restaurant: food.restaurant,
+        createdAt: food.createdAt,
+        updatedAt: food.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Update food error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error.',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Food item with this name already exists in your restaurant.'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating food item.',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
@@ -434,37 +586,89 @@ const updateFood = async (req, res) => {
 // Delete food
 const deleteFood = async (req, res) => {
   try {
-    const { foodId } = req.params;
+    // Fix: Extract 'id' parameter (assuming route is /food/:id)
+    const foodId = req.params.id; // or const { id: foodId } = req.params;
 
-    const food = await Food.findById(foodId).populate('restaurant');
+    // Validate foodId
+    if (!foodId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Food ID is required.'
+      });
+    }
+
+    // Validate ObjectId format
+    if (!foodId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid food ID format.'
+      });
+    }
+
+    let food;
+
+    if (req.user.role === 'admin') {
+      // Admin can delete any food item
+      food = await Food.findById(foodId).populate('restaurant');
+    } else if (req.user.role === 'restaurant') {
+      // Restaurant owner can only delete their own food items
+      const restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found.'
+        });
+      }
+
+      food = await Food.findOne({ 
+        _id: foodId, 
+        restaurant: restaurant._id 
+      }).populate('restaurant');
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only restaurant owners and admins can delete food items.'
+      });
+    }
     
     if (!food) {
       return res.status(404).json({
         success: false,
-        message: 'Food item not found.'
+        message: 'Food item not found or you do not have permission to delete it.'
       });
     }
 
-    // Check if user has permission to delete this food
-    if (req.user.role !== 'admin' && food.restaurant.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You do not have permission to delete this food item.'
-      });
-    }
+    // Store food details for response (optional)
+    const deletedFoodInfo = {
+      _id: food._id,
+      name: food.name,
+      restaurant: food.restaurant.name
+    };
 
+    // Delete the food item
     await Food.findByIdAndDelete(foodId);
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: 'Food item deleted successfully.'
+      message: 'Food item deleted successfully.',
+      deletedFood: deletedFoodInfo
     });
+
   } catch (error) {
     console.error('Delete food error:', error);
+    
+    // Handle specific error types
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid food ID format.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Server error.',
-      error: error.message
+      message: 'Server error while deleting food item.',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
@@ -475,6 +679,7 @@ module.exports = {
   toggleRestaurantStatus,
   addFood,
   getFoods,
+  toggleFoodAvailability,
   updateFood,
   deleteFood
 };
