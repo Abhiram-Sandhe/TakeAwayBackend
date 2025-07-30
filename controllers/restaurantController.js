@@ -323,32 +323,58 @@ const getFoods = async (req, res) => {
         });
       }
       restaurant = await Restaurant.findById(restaurantId);
-    } else {
-      // Restaurant owner gets their own foods
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found.'
+        });
+      }
+    } else if (req.user.role === 'restaurant') {
+      // Restaurant role gets their own foods (same logic as addFood)
       restaurant = await Restaurant.findOne({ owner: req.user._id });
-    }
-
-    if (!restaurant) {
-      return res.status(404).json({
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found. Please create a restaurant first.'
+        });
+      }
+    } else {
+      // Other roles are not authorized to access this endpoint
+      return res.status(403).json({
         success: false,
-        message: 'Restaurant not found.'
+        message: 'Access denied. Only restaurant owners and admins can access food items.'
       });
     }
 
+    // Get foods for the restaurant with populated restaurant details
     const foods = await Food.find({ restaurant: restaurant._id })
-      .populate('restaurant', 'name')
+      .populate('restaurant', 'name location')
       .sort({ createdAt: -1 });
 
-    res.json({
+    res.status(200).json({
       success: true,
-      foods
+      message: 'Foods retrieved successfully.',
+      foods: foods.map(food => ({
+        _id: food._id,
+        name: food.name,
+        description: food.description,
+        price: food.price,
+        category: food.category,
+        image: food.image,
+        restaurant: food.restaurant
+        // createdAt: food.createdAt,
+        // updatedAt: food.updatedAt
+      })),
+      count: foods.length
     });
+    
   } catch (error) {
     console.error('Get foods error:', error);
+    
     res.status(500).json({
       success: false,
-      message: 'Server error.',
-      error: error.message
+      message: 'Server error while retrieving food items.',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
