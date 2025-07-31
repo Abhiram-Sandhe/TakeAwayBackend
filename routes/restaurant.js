@@ -31,7 +31,7 @@ router.patch('/toggle-status', auth, authorize('restaurant'), toggleRestaurantSt
 // Food image upload - uses 'food-items' folder  
 router.post('/food', auth, authorize('restaurant'), uploadFoodImage('image'), addFood);
 router.get('/foods', auth, authorize('restaurant'), getFoods);
-router.patch('/foods/:foodId/toggle-availability', toggleFoodAvailability);
+router.patch('/foods/:foodId/toggle-availability', auth, authorize('restaurant'), toggleFoodAvailability);
 router.put('/food/:id', auth, authorize('restaurant'), uploadFoodImage('image'), updateFood);
 router.delete('/food/:id', auth, authorize('restaurant'), deleteFood);
 

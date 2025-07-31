@@ -275,6 +275,7 @@ const addFood = async (req, res) => {
         category: food.category,
         image: food.image,
         restaurant: food.restaurant,
+        isAvailable: food.isAvailable,
         createdAt: food.createdAt,
         updatedAt: food.updatedAt
       }
@@ -361,7 +362,8 @@ const getFoods = async (req, res) => {
         price: food.price,
         category: food.category,
         image: food.image,
-        restaurant: food.restaurant
+        restaurant: food.restaurant,
+        isAvailable: food.isAvailable
         // createdAt: food.createdAt,
         // updatedAt: food.updatedAt
       })),
