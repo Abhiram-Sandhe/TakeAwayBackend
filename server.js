@@ -16,6 +16,7 @@ mongoose.connect(process.env.MONGODB_URI);
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/restaurant', require('./routes/restaurant'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/restaurant-applications', require('./routes/restaurantApplicationRoutes'));
 // app.use('/api/public', require('./routes/public'));
 
 const PORT = process.env.PORT || 8080;
