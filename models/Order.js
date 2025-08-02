@@ -48,9 +48,6 @@ const orderSchema = new mongoose.Schema({
   customerAddress: {
     type: String
   },
-  tableNumber: {
-    type: Number
-  },
   items: [orderItemSchema],
   totalAmount: {
     type: Number,

@@ -12,22 +12,6 @@ const validateOrder = [
   body('items.*.quantity')
     .isInt({ min: 1, max: 20 })
     .withMessage('Quantity must be between 1 and 20'),
-  
-  body('orderType')
-    .optional()
-    .isIn(['dine-in', 'takeaway', 'delivery'])
-    .withMessage('Invalid order type'),
-
-  body('tableNumber')
-    .optional()
-    .isInt({ min: 1, max: 100 })
-    .withMessage('Table number must be between 1 and 100')
-    .custom((value, { req }) => {
-      if (req.body.orderType === 'dine-in' && !value) {
-        throw new Error('Table number is required for dine-in orders');
-      }
-      return true;
-    }),
 
   body('customerPhone')
     .optional()
@@ -42,11 +26,6 @@ const validateOrder = [
       }
       return true;
     }),
-
-  body('paymentMethod')
-    .optional()
-    .isIn(['cash', 'card', 'upi', 'online'])
-    .withMessage('Invalid payment method'),
 
   (req, res, next) => {
     const errors = validationResult(req);
@@ -65,11 +44,6 @@ const validateOrderStatus = [
   body('status')
     .isIn(['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'])
     .withMessage('Invalid status'),
-  
-  body('estimatedTime')
-    .optional()
-    .isInt({ min: 1, max: 180 })
-    .withMessage('Estimated time must be between 1 and 180 minutes'),
 
   (req, res, next) => {
     const errors = validationResult(req);

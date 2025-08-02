@@ -12,7 +12,6 @@ const setSocketIO = (socketIO) => {
 // Create new order (Customer only)
 const createOrder = async (req, res) => {
   try {
-
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: false,
@@ -71,7 +70,13 @@ const createOrder = async (req, res) => {
       });
     }
 
+    const generateOrderNumber = () => {
+  const random = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
+  return `ORD-${random}`; // e.g., ORD-4736
+};
+
     const newOrder = new Order({
+      orderNumber: generateOrderNumber(),
       customer: userId,
       restaurant: restaurantId,
       customerName: req.user.name,
