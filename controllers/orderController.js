@@ -71,17 +71,17 @@ const createOrder = async (req, res) => {
     }
 
     const generateOrderNumber = () => {
-  const random = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
-  return `ORD-${random}`; // e.g., ORD-4736
-};
+      const random = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
+      return `ORD-${random}`; // e.g., ORD-4736
+    };
 
     const newOrder = new Order({
       orderNumber: generateOrderNumber(),
       customer: userId,
       restaurant: restaurantId,
       customerName: req.user.name,
-      customerPhone: customerPhone || req.user.phone,
-      customerAddress: customerAddress || req.user.address,
+      customerPhone: req.user.phone,
+      customerAddress: req.user.address,
       items: orderItems,
       totalAmount,
     });
