@@ -21,7 +21,6 @@ const createOrder = async (req, res) => {
 
     const {
       items,
-      //orderType,
       customerPhone,
       customerAddress,
     } = req.body;
@@ -71,8 +70,8 @@ const createOrder = async (req, res) => {
     }
 
     const generateOrderNumber = () => {
-      const random = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
-      return `ORD-${random}`; // e.g., ORD-4736
+      const random = Math.floor(1000 + Math.random() * 9000);
+      return `ORD-${random}`;
     };
 
     const newOrder = new Order({
@@ -87,27 +86,61 @@ const createOrder = async (req, res) => {
     });
 
     const savedOrder = await newOrder.save();
+
+    // Populate order details
     await savedOrder.populate([
       { path: "customer", select: "name email phone" },
-      { path: "restaurant", select: "name address phone" },
+      { path: "restaurant", select: "name address phone owner" },
       { path: "items.foodId", select: "name category image" },
     ]);
+
+    // Get restaurant owner if populate didn't work
+    let restaurantOwner = savedOrder.restaurant?.owner;
+    if (!restaurantOwner) {
+      const Restaurant = require('../models/Restaurant');
+      const restaurant = await Restaurant.findById(restaurantId).select('owner');
+      restaurantOwner = restaurant?.owner;
+    }
 
     // Clear customer's cart after successful order
     await User.findByIdAndUpdate(userId, { $set: { cart: [] } });
 
-    // Emit real-time update to restaurant and admin
+    // Emit real-time update via WebSocket
     if (io) {
-      io.to(`restaurant_${restaurantId}`).emit("newOrder", {
-        order: savedOrder,
-        message: `New order received from ${req.user.name}`,
-        type: "new_order",
+      const orderData = {
+        _id: savedOrder._id,
+        orderNumber: savedOrder.orderNumber,
+        customerName: savedOrder.customerName,
+        customerPhone: savedOrder.customerPhone,
+        items: savedOrder.items.map(item => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        status: savedOrder.status,
+        createdAt: savedOrder.createdAt,
+        totalAmount: savedOrder.totalAmount,
+        timestamp: savedOrder.createdAt
+      };
+
+      // Emit to specific rooms
+      const roomsToNotify = [
+        `restaurant_${restaurantId}`,
+        `restaurant_owner_${restaurantOwner}`,
+        'admin'
+      ];
+
+      roomsToNotify.forEach(room => {
+        if (!room.includes('undefined')) {
+          io.to(room).emit("newOrder", orderData);
+        }
       });
 
-      io.to("admin").emit("newOrder", {
-        order: savedOrder,
-        message: `New order received`,
-        type: "new_order",
+      // Fallback broadcast to all connected sockets
+      io.emit('newOrderBroadcast', {
+        ...orderData,
+        targetRestaurant: restaurantId.toString(),
+        targetOwner: restaurantOwner?.toString()
       });
     }
 

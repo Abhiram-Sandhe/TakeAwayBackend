@@ -4,6 +4,7 @@
   const cors = require("cors");
   const { Server } = require("socket.io");
   const handleOrderSocket = require("./socket/orderSocket");
+  const { setSocketIO } = require('./controllers/orderController')
   require("dotenv").config();
 
   const app = express();
@@ -17,6 +18,8 @@
       methods: ["GET", "POST"],
     },
   });
+
+  setSocketIO(io);
 
   app.use(
     cors({
