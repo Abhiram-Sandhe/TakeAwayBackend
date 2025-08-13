@@ -287,7 +287,8 @@ const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        phone:user.phone,
       }
     });
   } catch (error) {
@@ -345,7 +346,7 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     // Create reset URL
-    const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
+    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
 
     // Email HTML content
     const htmlContent = `
@@ -384,31 +385,43 @@ const resetPassword = async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
 
+    console.log('Reset password - Received token:', token);
+    console.log('Reset password - Password length:', password?.length);
+
     // Hash the token to match with stored hash
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    console.log('Reset password - Hashed token:', hashedToken);
 
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() }
     });
 
+    console.log('Reset password - User found:', user ? 'Yes' : 'No');
+    
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
+    // Hash the new password before saving (important!)
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
     // Set new password
-    user.password = password;
+    user.password = hashedPassword; // Use hashed password
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     
     await user.save();
+    console.log('Password updated successfully');
 
     res.json({ message: 'Password reset successful' });
   } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
 module.exports = { register, verifyOTP, resendOTP, login, logout, forgotPassword, resetPassword };
 
 

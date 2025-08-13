@@ -184,26 +184,26 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// Get all restaurants
-// const getRestaurants = async (req, res) => {
-//   try {
-//     const restaurants = await Restaurant.find()
-//       .populate('owner', 'name email phone')
-//       .sort({ createdAt: -1 });
+//Get all restaurants
+const getRestaurants = async (req, res) => {
+  try {
+    const restaurants = await Restaurant.find()
+      .populate('owner', 'name email phone')
+      .sort({ createdAt: -1 });
 
-//     res.json({
-//       success: true,
-//       restaurants
-//     });
-//   } catch (error) {
-//     console.error('Get restaurants error:', error);
-//     res.status(500).json({ 
-//       success: false,
-//       message: 'Server error.',
-//       error: error.message 
-//     });
-//   }
-// };
+    res.json({
+      success: true,
+      restaurants
+    });
+  } catch (error) {
+    console.error('Get restaurants error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error.',
+      error: error.message 
+    });
+  }
+};
 
 const createRestaurant = async (req, res) => {
   try {
@@ -472,7 +472,7 @@ module.exports = {
   updateUser,
   getUsers,
   deleteUser,
-  // getRestaurants,
+  getRestaurants,
   // createRestaurant,
   // updateRestaurant,
   // toggleRestaurantStatus,
