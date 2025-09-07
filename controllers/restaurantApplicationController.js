@@ -1,6 +1,7 @@
 const RestaurantApplication = require('../models/RestaurantApplication');
 const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
+const bcrypt = require('bcrypt');
 
 // Submit Restaurant Application (Public Route)
 const submitRestaurantApplication = async (req, res) => {
@@ -47,6 +48,8 @@ const submitRestaurantApplication = async (req, res) => {
       });
     }
 
+    // Hash password for security while storing in application
+
     // Handle image upload
     let imageUrl = null;
     if (req.file) {
@@ -55,7 +58,7 @@ const submitRestaurantApplication = async (req, res) => {
       }
     }
 
-    // Create restaurant application
+    // Create restaurant application with hashed password
     const application = new RestaurantApplication({
       name,
       description,
@@ -65,7 +68,7 @@ const submitRestaurantApplication = async (req, res) => {
       ownerName,
       ownerEmail,
       ownerPhone,
-      ownerPassword, // Note: You should hash this before saving
+      ownerPassword, // Store hashed password
       image: imageUrl
     });
 
@@ -117,6 +120,8 @@ const getAllApplications = async (req, res) => {
 
     const applications = await RestaurantApplication.find(filter)
       .populate('reviewedBy', 'name')
+      .populate('createdUser', 'name email')
+      .populate('createdRestaurant', 'name')
       .sort({ appliedAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -170,27 +175,28 @@ const reviewApplication = async (req, res) => {
       });
     }
 
-    // Update application status
-    application.status = status;
-    application.adminNotes = adminNotes;
-    application.reviewedAt = new Date();
-    application.reviewedBy = adminId;
-    await application.save();
-
     // If approved, create user and restaurant
     if (status === 'approved') {
       try {
-        // Create user (password is already hashed in the application model)
+        // Double-check that user doesn't exist
+        const existingUser = await User.findOne({ email: application.ownerEmail });
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: 'A user with this email already exists.'
+          });
+        }
+
         const owner = new User({
           name: application.ownerName,
           email: application.ownerEmail,
-          password: application.ownerPassword, // Already hashed
+          password: application.ownerPassword, 
           phone: application.ownerPhone,
           role: 'restaurant'
         });
         await owner.save();
 
-        // Create restaurant using your existing model structure
+        // Create restaurant
         const restaurant = new Restaurant({
           name: application.name,
           owner: owner._id,
@@ -199,12 +205,16 @@ const reviewApplication = async (req, res) => {
           phone: application.phone,
           cuisine: application.cuisine || 'General',
           image: application.image,
-          isOpen: true, // Default from your model
-          isActive: true // Default from your model
+          isOpen: true,
+          isActive: true
         });
         await restaurant.save();
 
-        // Update application with references to created entities
+        // Update application status with references to created entities
+        application.status = status;
+        application.adminNotes = adminNotes;
+        application.reviewedAt = new Date();
+        application.reviewedBy = adminId;
         application.createdRestaurant = restaurant._id;
         application.createdUser = owner._id;
         await application.save();
@@ -212,22 +222,51 @@ const reviewApplication = async (req, res) => {
         res.json({
           success: true,
           message: 'Application approved and restaurant created successfully',
-          restaurant: restaurant._id
+          data: {
+            restaurantId: restaurant._id,
+            userId: owner._id,
+            restaurantName: restaurant.name,
+            ownerEmail: owner.email
+          }
         });
-      } catch (createError) {
-        // Rollback application status if creation fails
-        application.status = 'pending';
-        application.reviewedAt = null;
-        application.reviewedBy = null;
-        await application.save();
 
+      } catch (createError) {
         console.error('Error creating restaurant after approval:', createError);
+        
+        // If we have specific validation errors, return them
+        if (createError.name === 'ValidationError') {
+          return res.status(400).json({
+            success: false,
+            message: 'Validation error while creating user/restaurant',
+            errors: Object.keys(createError.errors).map(key => ({
+              field: key,
+              message: createError.errors[key].message
+            }))
+          });
+        }
+
+        // For duplicate key errors
+        if (createError.code === 11000) {
+          return res.status(400).json({
+            success: false,
+            message: 'A user or restaurant with this information already exists.'
+          });
+        }
+
         return res.status(500).json({
           success: false,
-          message: 'Failed to create restaurant after approval. Please try again.'
+          message: 'Failed to create restaurant after approval. Please try again.',
+          error: createError.message
         });
       }
     } else {
+      // If rejected, just update the application status
+      application.status = status;
+      application.adminNotes = adminNotes;
+      application.reviewedAt = new Date();
+      application.reviewedBy = adminId;
+      await application.save();
+
       res.json({
         success: true,
         message: 'Application rejected successfully'
@@ -238,7 +277,8 @@ const reviewApplication = async (req, res) => {
     console.error('Review application error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error occurred'
+      message: 'Server error occurred',
+      error: error.message
     });
   }
 };
@@ -249,7 +289,9 @@ const getApplicationById = async (req, res) => {
     const { applicationId } = req.params;
     
     const application = await RestaurantApplication.findById(applicationId)
-      .populate('reviewedBy', 'name');
+      .populate('reviewedBy', 'name email')
+      .populate('createdUser', 'name email phone role')
+      .populate('createdRestaurant', 'name address phone cuisine isActive isOpen');
     
     if (!application) {
       return res.status(404).json({
@@ -271,9 +313,53 @@ const getApplicationById = async (req, res) => {
   }
 };
 
+// Get Application Status (Public Route - for applicants to check their status)
+const getApplicationStatus = async (req, res) => {
+  try {
+    const { email } = req.query;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    const application = await RestaurantApplication.findOne({ ownerEmail: email })
+      .select('status appliedAt reviewedAt adminNotes name')
+      .sort({ appliedAt: -1 });
+    
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'No application found for this email'
+      });
+    }
+
+    res.json({
+      success: true,
+      application: {
+        id: application._id,
+        restaurantName: application.name,
+        status: application.status,
+        submittedAt: application.appliedAt,
+        reviewedAt: application.reviewedAt,
+        adminNotes: application.adminNotes
+      }
+    });
+  } catch (error) {
+    console.error('Get application status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred'
+    });
+  }
+};
+
 module.exports = {
   submitRestaurantApplication,
   getAllApplications,
   reviewApplication,
-  getApplicationById
+  getApplicationById,
+  getApplicationStatus
 };

@@ -296,9 +296,35 @@ const login = async (req, res) => {
   }
 };
 
+const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password -tokenBlacklist');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.status(200).json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        emailVerified: user.emailVerified,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 const logout = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     
     // Add current token to blacklist
     user.tokenBlacklist.push(req.token);
@@ -422,7 +448,25 @@ const resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-module.exports = { register, verifyOTP, resendOTP, login, logout, forgotPassword, resetPassword };
+
+const verifyToken = async (req, res) => {
+  try {
+    // If we reach here, the auth middleware has already verified the token
+    res.status(200).json({ 
+      message: 'Token is valid',
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role,
+        phone: req.user.phone,
+      }
+    });
+  } catch (error) {
+    res.status(401).json({ message: 'Token verification failed' });
+  }
+};
+module.exports = { register, verifyOTP, resendOTP, login, logout, forgotPassword, resetPassword , verifyToken, getCurrentUser };
 
 
 
