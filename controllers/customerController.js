@@ -12,6 +12,19 @@ const getRestaurants = async (req, res) => {
   }
 };
 
+const getFeaturedRestaurants = async (req, res) => {
+  try {
+    const featuredRestaurants = await Restaurant.find({ 
+      isActive: true, 
+      isFeatured: true 
+    }).limit(6); // Limit to 6 for homepage
+    
+    res.json(featuredRestaurants);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 const getFoodsByRestaurant = async (req, res) => {
   try {
     const foods = await Food.find({ 
@@ -109,6 +122,7 @@ const getOrderHistory = async (req, res) => {
 
 module.exports = {
   getRestaurants,
+  getFeaturedRestaurants,
   getFoodsByRestaurant,
   addToCart,
   getCart,

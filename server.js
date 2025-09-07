@@ -33,15 +33,15 @@
 
   app.set("io", io);
 
+  // Public routes (no authentication required)
+  app.use("/api/public", require("./routes/public"));
+
   app.use("/api/auth", require("./routes/auth"));
   app.use("/api/restaurant", require("./routes/restaurant"));
   app.use("/api/admin", require("./routes/admin"));
-  app.use(
-    "/api/restaurant-applications",
-    require("./routes/restaurantApplicationRoutes")
-  );
+  app.use("/api/restaurant-applications", require("./routes/restaurantApplicationRoutes"));
   app.use("/api/orders", require("./routes/order"));
-  // app.use('/api/public', require('./routes/public'));
+
 
   handleOrderSocket(io);
 
