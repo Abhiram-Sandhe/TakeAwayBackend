@@ -192,7 +192,8 @@ const reviewApplication = async (req, res) => {
           email: application.ownerEmail,
           password: application.ownerPassword, 
           phone: application.ownerPhone,
-          role: 'restaurant'
+          role: 'restaurant',
+          emailVerified: true
         });
         await owner.save();
 

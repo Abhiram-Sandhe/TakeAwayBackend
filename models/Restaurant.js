@@ -42,7 +42,7 @@ const restaurantSchema = new mongoose.Schema(
     },
     isFeatured: {
       type: Boolean,
-      default: true,
+      default: false,
     },
   },
   {

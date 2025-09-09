@@ -205,119 +205,54 @@ const getRestaurants = async (req, res) => {
   }
 };
 
-const createRestaurant = async (req, res) => {
+const toggleRestaurantFeaturedStatus = async (req, res) => {
   try {
-    const { 
-      name, 
-      description, 
-      address, 
-      phone, 
-      cuisine, 
-      ownerName,
-      ownerEmail,
-      ownerPhone,
-      ownerPassword
-    } = req.body;
-
-    // Validate required fields
-    if (!name || !description || !address || !phone || !ownerName || !ownerEmail || !ownerPassword) {
-      return res.status(400).json({
+    // Check if user is admin
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
         success: false,
-        message: 'Please provide all required fields: name, description, address, phone, ownerName, ownerEmail, ownerPassword.'
+        message: 'Access denied. Admin privileges required.'
       });
     }
 
-    // Check if owner email already exists
-    const existingUser = await User.findOne({ email: ownerEmail });
-    if (existingUser) {
+    // Get restaurantId from URL parameters
+    const { restaurantId } = req.params;
+
+    if (!restaurantId) {
       return res.status(400).json({
         success: false,
-        message: 'A user with this email already exists.'
+        message: 'Restaurant ID is required.'
       });
     }
 
-    // Create user
-    const owner = new User({
-      name: ownerName,
-      email: ownerEmail,
-      password: ownerPassword,
-      phone: ownerPhone,
-      role: 'restaurant'
-    });
-    await owner.save();
-
-    // Handle image upload
-    let imageUrl = null;
-    if (req.file) {
-      if (req.file.path) {
-        imageUrl = req.file.path;
-      }
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Restaurant not found.' 
+      });
     }
 
-    // Create restaurant
-    const restaurant = new Restaurant({
-      name,
-      description,
-      address,
-      phone,
-      cuisine: cuisine || 'General',
-      owner: owner._id,
-      image: imageUrl
-    });
-
+    restaurant.isFeatured = !restaurant.isFeatured;
     await restaurant.save();
-    await restaurant.populate('owner', 'name email phone');
 
-    const response = {
+    const populatedRestaurant = await Restaurant.findById(restaurant._id)
+      .populate('owner', 'name email phone');
+
+    res.json({
       success: true,
-      message: 'Restaurant and owner created successfully.',
-      restaurant,
-      owner: {
-        id: owner._id,
-        name: owner.name,
-        email: owner.email,
-        phone: owner.phone
-      }
-    };
-
-    if (req.file && !req.file.path) {
-      response.warning = 'Image was uploaded but Cloudinary is not available. Image not saved to cloud storage.';
-    }
-
-    res.status(201).json(response);
-
+      message: `Restaurant ${restaurant.isFeatured ? 'featured' : 'unfeatured'} successfully.`,
+      restaurant: populatedRestaurant
+    });
   } catch (error) {
-    console.error('Create restaurant error:', error);
-
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: Object.keys(error.errors).map(key => ({
-          field: key,
-          message: error.errors[key].message
-        }))
-      });
-    }
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Duplicate entry found',
-        field: Object.keys(error.keyPattern || {})[0]
-      });
-    }
-
-    res.status(500).json({
+    console.error('Toggle restaurant featured status error:', error);
+    res.status(500).json({ 
       success: false,
-      message: 'Server error occurred',
-      error: error.message
+      message: 'Server error.',
+      error: error.message 
     });
   }
 };
-
-// // Update restaurant
-
 
 // const updateRestaurant = async (req, res) => {
 //   try {
@@ -473,9 +408,6 @@ module.exports = {
   getUsers,
   deleteUser,
   getRestaurants,
-  // createRestaurant,
-  // updateRestaurant,
-  // toggleRestaurantStatus,
-  // deleteRestaurant,
+  toggleRestaurantFeaturedStatus,
   getStats
 };
