@@ -42,6 +42,8 @@
   app.use("/api/restaurant-applications", require("./routes/restaurantApplicationRoutes"));
   app.use("/api/orders", require("./routes/order"));
 
+  app.use('/api/cart', require('./routes/cart'));
+
 
   handleOrderSocket(io);
 

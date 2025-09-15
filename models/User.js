@@ -17,12 +17,6 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    cart: [
-      {
-        foodId: { type: mongoose.Schema.Types.ObjectId, ref: "Food" },
-        quantity: { type: Number, default: 1 },
-      },
-    ],
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     tokenBlacklist: [String], // For logout functionality

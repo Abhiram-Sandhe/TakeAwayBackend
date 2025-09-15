@@ -1,6 +1,7 @@
 const Order = require("../models/Order");
 const Food = require("../models/Food");
 const User = require("../models/User");
+const Cart = require("../models/Cart");
 
 // WebSocket instance will be injected
 let io;
@@ -19,55 +20,47 @@ const createOrder = async (req, res) => {
       });
     }
 
-    const {
-      items,
-      customerPhone,
-      customerAddress,
-    } = req.body;
+    const { customerPhone, customerAddress } = req.body;
     const userId = req.user._id;
 
-    // Validate items and calculate total
-    let totalAmount = 0;
-    const orderItems = [];
-    let restaurantId = null;
+    // Get cart data instead of items from request body
+    const cart = await Cart.findOne({ user: userId, isActive: true })
+      .populate('items.food', 'name price isAvailable')
+      .populate('items.restaurant', 'name isOpen')
+      .populate('restaurant', 'name isOpen');
 
-    for (const item of items) {
-      const food = await Food.findById(item.foodId).populate("restaurant");
-      if (!food) {
-        return res.status(400).json({
-          success: false,
-          message: `Food item with ID ${item.foodId} not found`,
-        });
-      }
-
-      if (!food.isAvailable) {
-        return res.status(400).json({
-          success: false,
-          message: `${food.name} is currently unavailable`,
-        });
-      }
-
-      // Ensure all items are from the same restaurant
-      if (!restaurantId) {
-        restaurantId = food.restaurant._id;
-      } else if (restaurantId.toString() !== food.restaurant._id.toString()) {
-        return res.status(400).json({
-          success: false,
-          message: "All items must be from the same restaurant",
-        });
-      }
-
-      const itemTotal = food.price * item.quantity;
-      totalAmount += itemTotal;
-
-      orderItems.push({
-        foodId: food._id,
-        name: food.name,
-        price: food.price,
-        quantity: item.quantity,
-        specialInstructions: item.specialInstructions || "",
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cart is empty'
       });
     }
+
+    if (!cart.restaurant.isOpen) {
+      return res.status(400).json({
+        success: false,
+        message: 'Restaurant is currently closed'
+      });
+    }
+
+    // Check if all items are still available
+    const unavailableItems = cart.items.filter(item => !item.food.isAvailable);
+    if (unavailableItems.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some items in your cart are no longer available',
+        unavailableItems: unavailableItems.map(item => item.food.name)
+      });
+    }
+
+    // Convert cart items to order items format
+    const orderItems = cart.items.map(item => ({
+      foodId: item.food._id,
+      name: item.food.name,
+      price: item.price, // Use cart price (in case food price changed)
+      quantity: item.quantity,
+      specialInstructions: item.specialInstructions || "",
+    }));
 
     const generateOrderNumber = () => {
       const random = Math.floor(1000 + Math.random() * 9000);
@@ -77,12 +70,12 @@ const createOrder = async (req, res) => {
     const newOrder = new Order({
       orderNumber: generateOrderNumber(),
       customer: userId,
-      restaurant: restaurantId,
+      restaurant: cart.restaurant._id,
       customerName: req.user.name,
-      customerPhone: req.user.phone,
-      customerAddress: req.user.address,
+      customerPhone: customerPhone || req.user.phone,
+      customerAddress: customerAddress || req.user.address,
       items: orderItems,
-      totalAmount,
+      totalAmount: cart.totalAmount, // Use cart total
     });
 
     const savedOrder = await newOrder.save();
@@ -98,12 +91,14 @@ const createOrder = async (req, res) => {
     let restaurantOwner = savedOrder.restaurant?.owner;
     if (!restaurantOwner) {
       const Restaurant = require('../models/Restaurant');
-      const restaurant = await Restaurant.findById(restaurantId).select('owner');
+      const restaurant = await Restaurant.findById(cart.restaurant._id).select('owner');
       restaurantOwner = restaurant?.owner;
     }
 
-    // Clear customer's cart after successful order
-    await User.findByIdAndUpdate(userId, { $set: { cart: [] } });
+    // Clear cart after successful order (instead of user cart array)
+    cart.items = [];
+    cart.restaurant = null;
+    await cart.save();
 
     // Emit real-time update via WebSocket
     if (io) {
@@ -125,7 +120,7 @@ const createOrder = async (req, res) => {
 
       // Emit to specific rooms
       const roomsToNotify = [
-        `restaurant_${restaurantId}`,
+        `restaurant_${cart.restaurant._id}`,
         `restaurant_owner_${restaurantOwner}`,
         'admin'
       ];
@@ -139,7 +134,7 @@ const createOrder = async (req, res) => {
       // Fallback broadcast to all connected sockets
       io.emit('newOrderBroadcast', {
         ...orderData,
-        targetRestaurant: restaurantId.toString(),
+        targetRestaurant: cart.restaurant._id.toString(),
         targetOwner: restaurantOwner?.toString()
       });
     }
