@@ -350,6 +350,7 @@ const getFoods = async (req, res) => {
     // Get foods for the restaurant with populated restaurant details
     const foods = await Food.find({ restaurant: restaurant._id })
       .populate('restaurant', 'name location')
+      .populate('category', 'name')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -360,7 +361,7 @@ const getFoods = async (req, res) => {
         name: food.name,
         description: food.description,
         price: food.price,
-        category: food.category,
+        category: food.category?.name || 'No Category',
         image: food.image,
         restaurant: food.restaurant,
         isAvailable: food.isAvailable
