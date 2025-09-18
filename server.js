@@ -43,7 +43,7 @@
   app.use("/api/orders", require("./routes/order"));
 
   app.use('/api/cart', require('./routes/cart'));
-
+  app.use('/api/categories', require('./routes/category'))
 
   handleOrderSocket(io);
 

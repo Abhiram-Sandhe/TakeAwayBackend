@@ -5,8 +5,6 @@ const { auth } = require('../middlewares/auth');
 
 // Optional auth middleware - allows both guest and authenticated users
 const optionalAuth = async (req, res, next) => {
-  console.log('OptionalAuth middleware hit'); // Debug log
-  console.log('Request body in middleware:', req.body); // Debug log
   
   const token = req.header('Authorization')?.replace('Bearer ', '');
   
@@ -31,17 +29,15 @@ const optionalAuth = async (req, res, next) => {
   } else {
     req.user = null;
   }
-  
-  console.log('User in middleware:', req.user ? req.user._id : 'No user'); // Debug log
   next(); // Make sure next() is always called
 };
 
 // Add debug middleware for cart routes
-router.use((req, res, next) => {
-  console.log('Cart route middleware - Body:', req.body);
-  console.log('Cart route middleware - Headers:', req.headers['content-type']);
-  next();
-});
+// router.use((req, res, next) => {
+//   console.log('Cart route middleware - Body:', req.body);
+//   console.log('Cart route middleware - Headers:', req.headers['content-type']);
+//   next();
+// });
 
 // Get cart
 router.post('/get', optionalAuth, CartController.getCart);
