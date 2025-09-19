@@ -11,7 +11,7 @@ const submitRestaurantApplication = async (req, res) => {
       description, 
       address, 
       phone, 
-      cuisine, 
+      //cuisine, 
       ownerName,
       ownerEmail,
       ownerPhone,
@@ -64,7 +64,7 @@ const submitRestaurantApplication = async (req, res) => {
       description,
       address,
       phone,
-      cuisine: cuisine || 'General',
+      // cuisine: cuisine || 'General',
       ownerName,
       ownerEmail,
       ownerPhone,
@@ -204,7 +204,7 @@ const reviewApplication = async (req, res) => {
           description: application.description,
           address: application.address,
           phone: application.phone,
-          cuisine: application.cuisine || 'General',
+          // cuisine: application.cuisine || 'General',
           image: application.image,
           isOpen: true,
           isActive: true
@@ -292,7 +292,7 @@ const getApplicationById = async (req, res) => {
     const application = await RestaurantApplication.findById(applicationId)
       .populate('reviewedBy', 'name email')
       .populate('createdUser', 'name email phone role')
-      .populate('createdRestaurant', 'name address phone cuisine isActive isOpen');
+      .populate('createdRestaurant', 'name address phone isActive isOpen');
     
     if (!application) {
       return res.status(404).json({

@@ -26,10 +26,10 @@ const restaurantSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    cuisine: {
-      type: String,
-      trim: true,
-    },
+    // cuisine: {
+    //   type: String,
+    //   trim: true,
+    // },
     image: {
       type: String,
       trim: true,
