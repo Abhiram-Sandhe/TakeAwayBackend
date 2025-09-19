@@ -13,6 +13,7 @@ const router = express.Router();
 // Public route for all restaurants
 router.get('/restaurants', getRestaurants);
 
+
 // Protected route (if you need customer-specific functionality later)
 router.get('/restaurants/customer', auth, authorize('customer'), getRestaurants);
 router.get('/restaurants/:id/foods', auth, authorize('customer'), getFoodsByRestaurant);
