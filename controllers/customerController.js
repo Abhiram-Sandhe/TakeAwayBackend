@@ -47,7 +47,7 @@ const getFoodsByRestaurant = async (req, res) => {
     })
     .populate({
       path: 'restaurant', 
-      select: 'name address phone isOpen isActive'
+      select: 'name address phone isOpen isActive image'
     })
     .populate({
       path: 'category',
@@ -84,14 +84,14 @@ const getFoodsByRestaurant = async (req, res) => {
         image: food.image,
         category: categoryName,
         isAvailable: food.isAvailable,
-        restaurant: {
-          id: food.restaurant._id,
-          name: food.restaurant.name,
-          address: food.restaurant.address,
-          phone: food.restaurant.phone,
-          isOpen: food.restaurant.isOpen,
-          isActive: food.restaurant.isActive
-        }
+        // restaurant: {
+        //   id: food.restaurant._id,
+        //   name: food.restaurant.name,
+        //   address: food.restaurant.address,
+        //   phone: food.restaurant.phone,
+        //   isOpen: food.restaurant.isOpen,
+        //   isActive: food.restaurant.isActive
+        // }
       });
       return acc;
     }, {});
@@ -111,7 +111,8 @@ const getFoodsByRestaurant = async (req, res) => {
         address: validFoods[0].restaurant.address,
         phone: validFoods[0].restaurant.phone,
         isOpen: validFoods[0].restaurant.isOpen,
-        isActive: validFoods[0].restaurant.isActive
+        isActive: validFoods[0].restaurant.isActive,
+        image: validFoods[0].restaurant.image,
       }
     });
 
