@@ -26,7 +26,7 @@ class CartController {
         cart = await Cart.findOne({ sessionId, isActive: true })
           .populate('items.food', 'name price image isAvailable')
           .populate('items.restaurant', 'name isOpen')
-          .populate('restaurant', 'name address phone');
+          .populate('restaurant', 'name address phone image');
       }
 
       if (!cart) {
@@ -75,7 +75,7 @@ class CartController {
   // Add item to cart
   static async addToCart(req, res) {
     try {
-      const { foodId, quantity = 1, specialInstructions = '', sessionId } = req.body;
+      const { foodId, quantity = 1, sessionId } = req.body;
       const userId = req.user?.id;
 
       // Validate food item
@@ -144,7 +144,7 @@ class CartController {
       if (existingItemIndex > -1) {
         // Update quantity of existing item
         cart.items[existingItemIndex].quantity += parseInt(quantity);
-        cart.items[existingItemIndex].specialInstructions = specialInstructions;
+        // cart.items[existingItemIndex].specialInstructions = specialInstructions;
       } else {
         // Add new item to cart
         cart.items.push({
@@ -152,7 +152,7 @@ class CartController {
           restaurant: food.restaurant._id,
           quantity: parseInt(quantity),
           price: food.price,
-          specialInstructions
+          // specialInstructions
         });
       }
 

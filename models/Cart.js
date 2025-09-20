@@ -21,11 +21,11 @@ const cartItemSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  specialInstructions: {
-    type: String,
-    maxlength: 500,
-    default: ''
-  }
+  // specialInstructions: {
+  //   type: String,
+  //   maxlength: 500,
+  //   default: ''
+  // }
 }, {
   _id: false,
   timestamps: true
