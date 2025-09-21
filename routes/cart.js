@@ -32,12 +32,6 @@ const optionalAuth = async (req, res, next) => {
   next(); // Make sure next() is always called
 };
 
-// Add debug middleware for cart routes
-// router.use((req, res, next) => {
-//   console.log('Cart route middleware - Body:', req.body);
-//   console.log('Cart route middleware - Headers:', req.headers['content-type']);
-//   next();
-// });
 
 // Get cart
 router.post('/get', optionalAuth, CartController.getCart);

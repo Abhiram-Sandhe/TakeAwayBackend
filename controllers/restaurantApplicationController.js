@@ -146,6 +146,15 @@ const getAllApplications = async (req, res) => {
   }
 };
 
+
+const generateRestaurantCode = async () => {
+  // Count how many restaurants exist
+  const count = await Restaurant.countDocuments();
+
+  // ASCII code for 'A' is 65
+  return String.fromCharCode(65 + count); 
+};
+
 // Review Application (Admin Only)
 const reviewApplication = async (req, res) => {
   try {
@@ -197,6 +206,8 @@ const reviewApplication = async (req, res) => {
         });
         await owner.save();
 
+        const restaurantCode = await generateRestaurantCode();
+
         // Create restaurant
         const restaurant = new Restaurant({
           name: application.name,
@@ -207,7 +218,8 @@ const reviewApplication = async (req, res) => {
           // cuisine: application.cuisine || 'General',
           image: application.image,
           isOpen: true,
-          isActive: true
+          isActive: true,
+          code: restaurantCode,
         });
         await restaurant.save();
 

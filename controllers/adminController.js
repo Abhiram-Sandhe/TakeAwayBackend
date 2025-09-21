@@ -2,70 +2,6 @@ const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
 const Food = require('../models/Food');
 const bcrypt = require('bcrypt');
-
-// Create a new user (Admin only)
-const createUser = async (req, res) => {
-  try {
-    // Optional: Validate admin role
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Admins only.',
-      });
-    }
-
-    const { name, email, phone, password, role, status, emailVerified  } = req.body;
-
-    if (!name || !email || !phone || !password || !role || !status) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required.',
-      });
-    }
-
-    // Check for existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: 'User with this email already exists.',
-      });
-    }
-
-    const newUser = new User({
-      name,
-      email,
-      phone,
-      password,
-      role,
-      status,
-      emailVerified: emailVerified === true || emailVerified === 'true',
-    });
-
-    await newUser.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'User created successfully.',
-      user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        status: newUser.status,
-        emailVerified: newUser.emailVerified,
-      },
-    });
-  } catch (error) {
-    console.error('Create user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error.',
-      error: error.message,
-    });
-  }
-};
-
 // Get all users
 const getUsers = async (req, res) => {
   try {
@@ -77,105 +13,6 @@ const getUsers = async (req, res) => {
     });
   } catch (error) {
     console.error('Get users error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error.',
-      error: error.message 
-    });
-  }
-};
-
-//Update users
-const updateUser = async (req, res) => {
-  try {
-    // Optional: Validate admin role
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Admins only.',
-      });
-    }
-
-    const { userId } = req.params;
-    const { name, email, phone, role, status } = req.body;
-
-    if (!name || !email || !phone || !role || !status) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required.',
-      });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
-
-    // Update fields
-    user.name = name;
-    user.email = email;
-    user.phone = phone;
-    user.role = role;
-    user.status = status;
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'User updated successfully.',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        status: user.status,
-      },
-    });
-
-  } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error.',
-      error: error.message,
-    });
-  }
-};
-
-// Delete user
-const deleteUser = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'User not found.' 
-      });
-    }
-
-    // If user is restaurant owner, delete restaurant and its foods
-    if (user.role === 'restaurant') {
-      const restaurant = await Restaurant.findOne({ owner: userId });
-      if (restaurant) {
-        await Food.deleteMany({ restaurant: restaurant._id });
-        await Restaurant.findByIdAndDelete(restaurant._id);
-      }
-    }
-
-    await User.findByIdAndDelete(userId);
-
-    res.json({
-      success: true,
-      message: 'User deleted successfully.'
-    });
-  } catch (error) {
-    console.error('Delete user error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error.',
@@ -403,10 +240,7 @@ const getStats = async (req, res) => {
 };
 
 module.exports = {
-  createUser,
-  updateUser,
   getUsers,
-  deleteUser,
   getRestaurants,
   toggleRestaurantFeaturedStatus,
   getStats

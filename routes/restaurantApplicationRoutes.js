@@ -11,20 +11,15 @@ const {
 
 const router = express.Router();
 
-// ========================================
-// PUBLIC ROUTES
-// ========================================
 
+// PUBLIC ROUTES
 // Submit restaurant application (Public route - for "Partner with Us" form)
 router.post('/apply', uploadSingle('image'), submitRestaurantApplication);
 
 // Get application status by email (public route for applicants to check status)
 router.get('/status', getApplicationStatus);
 
-// ========================================
 // ADMIN ROUTES (Protected)
-// ========================================
-
 // Get all restaurant applications with filtering and pagination
 router.get('/', auth, authorize('admin'), getAllApplications);
 

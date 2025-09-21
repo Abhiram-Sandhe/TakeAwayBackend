@@ -125,76 +125,6 @@ const getFoodsByRestaurant = async (req, res) => {
     });
   }
 };
-const addToCart = async (req, res) => {
-  try {
-    const { foodId, quantity } = req.body;
-    
-    const user = await User.findById(req.user._id);
-    const existingItem = user.cart.find(item => item.foodId.toString() === foodId);
-    
-    if (existingItem) {
-      existingItem.quantity += quantity;
-    } else {
-      user.cart.push({ foodId, quantity });
-    }
-    
-    await user.save();
-    res.json({ message: 'Item added to cart' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-const getCart = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).populate('cart.foodId');
-    res.json(user.cart);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-const placeOrder = async (req, res) => {
-  try {
-    const { items, restaurantId, deliveryAddress, customerPhone } = req.body;
-    
-    let totalAmount = 0;
-    const orderItems = [];
-    
-    for (const item of items) {
-      const food = await Food.findById(item.foodId);
-      if (!food) {
-        return res.status(404).json({ message: 'Food item not found' });
-      }
-      
-      const itemTotal = food.price * item.quantity;
-      totalAmount += itemTotal;
-      
-      orderItems.push({
-        food: food._id,
-        quantity: item.quantity,
-        price: food.price
-      });
-    }
-    
-    const order = new Order({
-      customer: req.user._id,
-      restaurant: restaurantId,
-      items: orderItems,
-      totalAmount,
-      deliveryAddress,
-      customerPhone
-    });
-    
-    await order.save();
-    
-    await User.findByIdAndUpdate(req.user._id, { cart: [] });
-    
-    res.status(201).json({ message: 'Order placed successfully', order });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
 
 const getOrderHistory = async (req, res) => {
   try {
@@ -212,8 +142,5 @@ module.exports = {
   getRestaurants,
   getFeaturedRestaurants,
   getFoodsByRestaurant,
-  addToCart,
-  getCart,
-  placeOrder,
   getOrderHistory
 };
