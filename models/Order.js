@@ -178,20 +178,20 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Generate order number before saving
-orderSchema.pre('save', async function(next) {
-  if (!this.orderNumber) {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const count = await mongoose.model('Order').countDocuments({
-      createdAt: {
-        $gte: new Date(date.setHours(0, 0, 0, 0)),
-        $lt: new Date(date.setHours(23, 59, 59, 999))
-      }
-    });
-    this.orderNumber = `ORD-${dateStr}-${String(count + 1).padStart(3, '0')}`;
-  }
-  next();
-});
+// orderSchema.pre('save', async function(next) {
+//   if (!this.orderNumber) {
+//     const date = new Date();
+//     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+//     const count = await mongoose.model('Order').countDocuments({
+//       createdAt: {
+//         $gte: new Date(date.setHours(0, 0, 0, 0)),
+//         $lt: new Date(date.setHours(23, 59, 59, 999))
+//       }
+//     });
+//     this.orderNumber = `ORD-${dateStr}-${String(count + 1).padStart(3, '0')}`;
+//   }
+//   next();
+// });
 
 // Method to update status with timestamp tracking
 orderSchema.methods.updateStatus = function(newStatus) {

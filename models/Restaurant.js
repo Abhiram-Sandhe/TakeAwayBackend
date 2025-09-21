@@ -34,8 +34,8 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-     isOpen: { type: Boolean, default: true },
-     
+    isOpen: { type: Boolean, default: true },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -44,6 +44,7 @@ const restaurantSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    code: { type: String, required: true, unique: true },
   },
   {
     timestamps: true,

@@ -13,27 +13,30 @@ const initializeOrderChangeStream = (io) => {
   }
 
   // Watch for changes in the Order collection
-  orderChangeStream = Order.watch([
+  orderChangeStream = Order.watch(
+    [
+      {
+        $match: {
+          operationType: { $in: ["insert", "update", "replace"] },
+        },
+      },
+    ],
     {
-      $match: {
-        operationType: { $in: ['insert', 'update', 'replace'] }
-      }
+      fullDocument: "updateLookup",
     }
-  ], {
-    fullDocument: 'updateLookup'
-  });
+  );
 
-  orderChangeStream.on('change', async (change) => {
+  orderChangeStream.on("change", async (change) => {
     try {
       const { operationType, fullDocument } = change;
-      
+
       if (!fullDocument) return;
 
       // Populate necessary fields for the order
       const populatedOrder = await Order.findById(fullDocument._id)
-        .populate('customer', 'name email phone')
-        .populate('restaurant', 'name address phone owner')
-        .populate('items.foodId', 'name category image');
+        .populate("customer", "name email phone")
+        .populate("restaurant", "name address phone owner")
+        .populate("items.foodId", "name category image");
 
       if (!populatedOrder) return;
 
@@ -42,107 +45,118 @@ const initializeOrderChangeStream = (io) => {
         orderNumber: populatedOrder.orderNumber,
         customerName: populatedOrder.customerName,
         customerPhone: populatedOrder.customerPhone,
-        items: populatedOrder.items.map(item => ({
+        items: populatedOrder.items.map((item) => ({
           name: item.name,
           price: item.price,
-          quantity: item.quantity
+          quantity: item.quantity,
         })),
         status: populatedOrder.status,
         createdAt: populatedOrder.createdAt,
         totalAmount: populatedOrder.totalAmount,
-        timestamp: populatedOrder.updatedAt || populatedOrder.createdAt
+        timestamp: populatedOrder.updatedAt || populatedOrder.createdAt,
       };
 
       // Handle new order creation
-      if (operationType === 'insert') {
+      if (operationType === "insert") {
         const roomsToNotify = [
           `restaurant_${populatedOrder.restaurant._id}`,
           `restaurant_owner_${populatedOrder.restaurant.owner}`,
-          'admin'
+          "admin",
         ];
 
-        roomsToNotify.forEach(room => {
-          if (!room.includes('undefined')) {
+        roomsToNotify.forEach((room) => {
+          if (!room.includes("undefined")) {
             io.to(room).emit("newOrder", orderData);
           }
         });
 
         // Fallback broadcast
-        io.emit('newOrderBroadcast', {
+        io.emit("newOrderBroadcast", {
           ...orderData,
           targetRestaurant: populatedOrder.restaurant._id.toString(),
-          targetOwner: populatedOrder.restaurant.owner?.toString()
+          targetOwner: populatedOrder.restaurant.owner?.toString(),
         });
       }
-      
+
       // Handle order updates (status changes)
-      if (operationType === 'update' || operationType === 'replace') {
+      if (operationType === "update" || operationType === "replace") {
         // Check if status was updated
         const statusUpdateData = {
           orderId: populatedOrder._id,
           orderNumber: populatedOrder.orderNumber,
           status: populatedOrder.status,
           estimatedTime: populatedOrder.estimatedTime,
-          timestamp: populatedOrder.updatedAt
+          timestamp: populatedOrder.updatedAt,
         };
 
         // Notify customer
-        io.to(`customer_${populatedOrder.customer._id}`).emit("orderStatusUpdate", {
-          ...statusUpdateData,
-          message: `Your order ${populatedOrder.orderNumber} is now ${populatedOrder.status}`
-        });
+        io.to(`customer_${populatedOrder.customer._id}`).emit(
+          "orderStatusUpdate",
+          {
+            ...statusUpdateData,
+            message: `Your order ${populatedOrder.orderNumber} is now ${populatedOrder.status}`,
+          }
+        );
 
         // Notify restaurant
-        io.to(`restaurant_${populatedOrder.restaurant._id}`).emit("orderStatusUpdate", {
-          ...statusUpdateData,
-          customerName: populatedOrder.customerName,
-          type: "status_update"
-        });
+        io.to(`restaurant_${populatedOrder.restaurant._id}`).emit(
+          "orderStatusUpdate",
+          {
+            ...statusUpdateData,
+            customerName: populatedOrder.customerName,
+            type: "status_update",
+          }
+        );
 
         // Notify admin
         io.to("admin").emit("orderStatusUpdate", {
           ...statusUpdateData,
           customerName: populatedOrder.customerName,
-          restaurantName: populatedOrder.restaurant.name
+          restaurantName: populatedOrder.restaurant.name,
         });
 
         // Handle cancellation specifically
-        if (populatedOrder.status === 'cancelled') {
-          io.to(`customer_${populatedOrder.customer._id}`).emit("orderCancelled", {
-            orderId: populatedOrder._id,
-            orderNumber: populatedOrder.orderNumber,
-            reason: "Order cancelled"
-          });
+        if (populatedOrder.status === "cancelled") {
+          io.to(`customer_${populatedOrder.customer._id}`).emit(
+            "orderCancelled",
+            {
+              orderId: populatedOrder._id,
+              orderNumber: populatedOrder.orderNumber,
+              reason: "Order cancelled",
+            }
+          );
 
-          io.to(`restaurant_${populatedOrder.restaurant._id}`).emit("orderCancelled", {
-            orderId: populatedOrder._id,
-            orderNumber: populatedOrder.orderNumber,
-            customerName: populatedOrder.customerName,
-            reason: "Order cancelled"
-          });
+          io.to(`restaurant_${populatedOrder.restaurant._id}`).emit(
+            "orderCancelled",
+            {
+              orderId: populatedOrder._id,
+              orderNumber: populatedOrder.orderNumber,
+              customerName: populatedOrder.customerName,
+              reason: "Order cancelled",
+            }
+          );
         }
       }
-
     } catch (error) {
-      console.error('Error processing order change stream:', error);
+      console.error("Error processing order change stream:", error);
     }
   });
 
-  orderChangeStream.on('error', (error) => {
-    console.error('Order change stream error:', error);
+  orderChangeStream.on("error", (error) => {
+    console.error("Order change stream error:", error);
     // Attempt to restart the change stream
     setTimeout(() => {
       initializeOrderChangeStream(io);
     }, 5000);
   });
 
-  console.log('Order change stream initialized');
+  console.log("Order change stream initialized");
 };
 
 const closeOrderChangeStream = () => {
   if (orderChangeStream) {
     orderChangeStream.close();
-    console.log('Order change stream closed');
+    console.log("Order change stream closed");
   }
 };
 
@@ -161,36 +175,38 @@ const createOrder = async (req, res) => {
 
     // Get cart data instead of items from request body
     const cart = await Cart.findOne({ user: userId, isActive: true })
-      .populate('items.food', 'name price isAvailable')
-      .populate('items.restaurant', 'name isOpen')
-      .populate('restaurant', 'name isOpen');
+      .populate("items.food", "name price isAvailable")
+      .populate("items.restaurant", "name isOpen")
+      .populate("restaurant", "name isOpen restaurantCode"); // Added 'code' to populate
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Cart is empty'
+        message: "Cart is empty",
       });
     }
 
     if (!cart.restaurant.isOpen) {
       return res.status(400).json({
         success: false,
-        message: 'Restaurant is currently closed'
+        message: "Restaurant is currently closed",
       });
     }
 
     // Check if all items are still available
-    const unavailableItems = cart.items.filter(item => !item.food.isAvailable);
+    const unavailableItems = cart.items.filter(
+      (item) => !item.food.isAvailable
+    );
     if (unavailableItems.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Some items in your cart are no longer available',
-        unavailableItems: unavailableItems.map(item => item.food.name)
+        message: "Some items in your cart are no longer available",
+        unavailableItems: unavailableItems.map((item) => item.food.name),
       });
     }
 
     // Convert cart items to order items format
-    const orderItems = cart.items.map(item => ({
+    const orderItems = cart.items.map((item) => ({
       foodId: item.food._id,
       name: item.food.name,
       price: item.price, // Use cart price (in case food price changed)
@@ -198,13 +214,31 @@ const createOrder = async (req, res) => {
       specialInstructions: item.specialInstructions || "",
     }));
 
-    const generateOrderNumber = () => {
-      const random = Math.floor(1000 + Math.random() * 9000);
-      return `ORD-${random}`;
+    // Get today's order count for this restaurant to generate order number
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayOrderCount = await Order.countDocuments({
+      restaurant: cart.restaurant._id,
+      createdAt: {
+        $gte: today,
+        $lt: tomorrow
+      }
+    });
+
+    const generateOrderNumber = (restaurantCode, count) => {
+      const today = new Date();
+      const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+      const date = String(today.getDate()).padStart(2, "0");
+      const formattedCount = String(count + 1).padStart(2, "0"); // +1 because this will be the next order
+
+      return `${restaurantCode}${dayOfWeek}${date}${formattedCount}`;
     };
 
     const newOrder = new Order({
-      orderNumber: generateOrderNumber(),
+      orderNumber: generateOrderNumber(cart.restaurant.code, todayOrderCount), // Using 'code' instead of 'restaurantCode'
       customer: userId,
       restaurant: cart.restaurant._id,
       customerName: req.user.name,

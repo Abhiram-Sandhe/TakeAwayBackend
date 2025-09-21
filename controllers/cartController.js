@@ -20,7 +20,7 @@ class CartController {
         cart = await Cart.findOne({ user: userId, isActive: true })
           .populate('items.food', 'name price image isAvailable')
           .populate('items.restaurant', 'name isOpen')
-          .populate('restaurant', 'name address phone');
+          .populate('restaurant', 'name address phone image');
       } else if (sessionId) {
         // Get cart for guest user
         cart = await Cart.findOne({ sessionId, isActive: true })
