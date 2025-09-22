@@ -481,7 +481,7 @@ const sendSuccessEmail = async (user) => {
             <div class="content">
                 <div class="welcome-card">
                     <h2>Hey ${user.name}, you're all set! 🎉</h2>
-                    <p>Welcome to the GrabGrub family! Your account has been successfully created and verified. Get ready to discover amazing restaurants, delicious cuisines, and lightning-fast delivery right to your doorstep.</p>
+                    <p>Welcome to the GrabGrub family! Your account has been successfully created and verified. Get ready to discover amazing restaurants, delicious cuisines, and convenient takeaway right at your fingertips.</p>
                 </div>
                 
                 <div class="account-details">
