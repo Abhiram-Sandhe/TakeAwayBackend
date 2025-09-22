@@ -219,7 +219,7 @@ const reviewApplication = async (req, res) => {
           image: application.image,
           isOpen: true,
           isActive: true,
-          code: restaurantCode,
+          restaurantCode: restaurantCode,
         });
         await restaurant.save();
 

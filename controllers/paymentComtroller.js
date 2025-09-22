@@ -1,8 +1,8 @@
-const Razorpay = require('razorpay');
-const crypto = require('crypto');
-const Order = require('../models/Order');
-const Cart = require('../models/Cart');
-const Payment = require('../models/Payment');
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
+const Order = require("../models/Order");
+const Cart = require("../models/Cart");
+const Payment = require("../models/Payment");
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
@@ -17,43 +17,45 @@ class PaymentController {
       const userId = req.user._id;
 
       // Get user details
-      const User = require('../models/User');
-      const user = await User.findById(userId).select('name email phone');
-      
+      const User = require("../models/User");
+      const user = await User.findById(userId).select("name email phone");
+
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: 'User not found'
+          message: "User not found",
         });
       }
 
       // Get cart data
       const cart = await Cart.findOne({ user: userId, isActive: true })
-        .populate('items.food', 'name price isAvailable')
-        .populate('items.restaurant', 'name isOpen')
-        .populate('restaurant', 'name isOpen');
+        .populate("items.food", "name price isAvailable")
+        .populate("items.restaurant", "name isOpen")
+        .populate("restaurant", "name isOpen");
 
       if (!cart || cart.items.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Cart is empty'
+          message: "Cart is empty",
         });
       }
 
       if (!cart.restaurant.isOpen) {
         return res.status(400).json({
           success: false,
-          message: 'Restaurant is currently closed'
+          message: "Restaurant is currently closed",
         });
       }
 
       // Check if all items are still available
-      const unavailableItems = cart.items.filter(item => !item.food.isAvailable);
+      const unavailableItems = cart.items.filter(
+        (item) => !item.food.isAvailable
+      );
       if (unavailableItems.length > 0) {
         return res.status(400).json({
           success: false,
-          message: 'Some items in your cart are no longer available',
-          unavailableItems: unavailableItems.map(item => item.food.name)
+          message: "Some items in your cart are no longer available",
+          unavailableItems: unavailableItems.map((item) => item.food.name),
         });
       }
 
@@ -62,7 +64,8 @@ class PaymentController {
       if (!finalCustomerPhone) {
         return res.status(400).json({
           success: false,
-          message: 'Phone number is required. Please provide it or update your profile.'
+          message:
+            "Phone number is required. Please provide it or update your profile.",
         });
       }
 
@@ -70,13 +73,13 @@ class PaymentController {
       if (!/^[6-9]\d{9}$/.test(finalCustomerPhone)) {
         return res.status(400).json({
           success: false,
-          message: 'Please provide a valid 10-digit phone number'
+          message: "Please provide a valid 10-digit phone number",
         });
       }
 
       // Create Razorpay order
       const amount = Math.round(cart.totalAmount * 100);
-      const currency = 'INR';
+      const currency = "INR";
 
       // Generate a shorter receipt ID (max 40 characters)
       const timestamp = Date.now().toString().slice(-8); // Last 8 digits
@@ -94,8 +97,8 @@ class PaymentController {
           restaurant_id: cart.restaurant._id.toString(),
           restaurant_name: cart.restaurant.name,
           customer_phone: finalCustomerPhone,
-          item_count: cart.items.length.toString()
-        }
+          item_count: cart.items.length.toString(),
+        },
       };
 
       const razorpayOrder = await razorpay.orders.create(razorpayOrderOptions);
@@ -107,9 +110,9 @@ class PaymentController {
         restaurant: cart.restaurant._id,
         amount: cart.totalAmount,
         currency,
-        status: 'created',
+        status: "created",
         cartData: {
-          items: cart.items.map(item => ({
+          items: cart.items.map((item) => ({
             foodId: item.food._id,
             name: item.food.name,
             price: item.price,
@@ -118,7 +121,7 @@ class PaymentController {
           })),
           totalAmount: cart.totalAmount,
           customerPhone: finalCustomerPhone,
-        }
+        },
       });
 
       await payment.save();
@@ -130,7 +133,7 @@ class PaymentController {
           amount,
           currency,
           key: process.env.RAZORPAY_KEY_ID,
-          name: 'Your Restaurant App',
+          name: "Your Restaurant App",
           description: `Payment for order from ${cart.restaurant.name}`,
           prefill: {
             name: user.name,
@@ -138,23 +141,25 @@ class PaymentController {
             contact: finalCustomerPhone,
           },
           theme: {
-            color: '#3399cc'
+            color: "#3399cc",
           },
           paymentId: payment._id,
           notes: {
             restaurant: cart.restaurant.name,
             items: cart.items.length,
-            totalAmount: cart.totalAmount
-          }
-        }
+            totalAmount: cart.totalAmount,
+          },
+        },
       });
-
     } catch (error) {
-      console.error('Create payment order error:', error);
+      console.error("Create payment order error:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to create payment order',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to create payment order",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -165,27 +170,32 @@ class PaymentController {
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,
-        paymentId
+        paymentId,
       } = req.body;
 
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !paymentId) {
+      if (
+        !razorpay_order_id ||
+        !razorpay_payment_id ||
+        !razorpay_signature ||
+        !paymentId
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required payment verification parameters'
+          message: "Missing required payment verification parameters",
         });
       }
 
       // Verify signature
       const body = razorpay_order_id + "|" + razorpay_payment_id;
       const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
         .update(body.toString())
-        .digest('hex');
+        .digest("hex");
 
       if (expectedSignature !== razorpay_signature) {
         return res.status(400).json({
           success: false,
-          message: 'Payment verification failed - Invalid signature'
+          message: "Payment verification failed - Invalid signature",
         });
       }
 
@@ -194,58 +204,91 @@ class PaymentController {
       if (!payment) {
         return res.status(404).json({
           success: false,
-          message: 'Payment record not found'
+          message: "Payment record not found",
         });
       }
 
       // Check if payment is already processed
-      if (payment.status === 'completed') {
+      if (payment.status === "completed") {
         return res.status(400).json({
           success: false,
-          message: 'Payment already processed'
+          message: "Payment already processed",
         });
       }
 
       // Get user details
-      const User = require('../models/User');
-      const user = await User.findById(payment.user).select('name email phone address');
-      
+      const User = require("../models/User");
+      const user = await User.findById(payment.user).select(
+        "name email phone address"
+      );
+
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: 'User not found'
+          message: "User not found",
+        });
+      }
+
+      const Restaurant = require("../models/Restaurant");
+      const restaurant = await Restaurant.findById(payment.restaurant).select(
+        "name isOpen restaurantCode"
+      );
+
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: "Restaurant not found",
         });
       }
 
       // Update payment status
       payment.razorpayPaymentId = razorpay_payment_id;
       payment.razorpaySignature = razorpay_signature;
-      payment.status = 'completed';
+      payment.status = "completed";
       payment.paidAt = new Date();
       await payment.save();
 
       const cartData = payment.cartData;
-      
-      // Generate unique order number (shortened)
-      const generateOrderNumber = () => {
-        const timestamp = Date.now().toString().slice(-6);
-        const random = Math.floor(100 + Math.random() * 900);
-        return `ORD${timestamp}${random}`;
+
+      // This ensures order count resets every day at midnight
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of today (00:00:00)
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1); // Set to start of tomorrow (00:00:00)
+
+      // Count only orders created today for this specific restaurant
+      const todayOrderCount = await Order.countDocuments({
+        restaurant: payment.restaurant,
+        createdAt: {
+          $gte: today, // Greater than or equal to today 00:00:00
+          $lt: tomorrow, // Less than tomorrow 00:00:00 (so only today's orders)
+        },
+      });
+
+      // Generate restaurant-based order number with daily reset
+      const generateOrderNumber = (restaurantCode, count) => {
+        const today = new Date();
+        const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+        const date = String(today.getDate()).padStart(2, "0");
+        const formattedCount = String(count + 1).padStart(2, "0"); // +1 because this will be the next order
+
+        return `${restaurantCode}${dayOfWeek}${date}${formattedCount}`;
       };
 
       // Create order
       const newOrder = new Order({
-        orderNumber: generateOrderNumber(),
+        orderNumber: generateOrderNumber(restaurant.restaurantCode, todayOrderCount),
         customer: payment.user,
         restaurant: payment.restaurant,
         customerName: user.name,
         customerPhone: cartData.customerPhone,
-        customerAddress: cartData.customerAddress || user.address || 'Address not provided',
+        customerAddress:
+        cartData.customerAddress || user.address || "Address not provided",
         items: cartData.items,
         totalAmount: cartData.totalAmount,
         paymentId: payment._id,
-        paymentStatus: 'paid',
-        paymentMethod: 'online'
+        paymentStatus: "paid",
+        paymentMethod: "online",
       });
 
       const savedOrder = await newOrder.save();
@@ -255,7 +298,7 @@ class PaymentController {
         { path: "customer", select: "name email phone address role" },
         { path: "restaurant", select: "name address phone owner" },
         { path: "items.foodId", select: "name category image" },
-        { path: "paymentId", select: "razorpayPaymentId amount status paidAt" }
+        { path: "paymentId", select: "razorpayPaymentId amount status paidAt" },
       ]);
 
       // Update payment with order reference
@@ -273,44 +316,48 @@ class PaymentController {
 
       // Socket.IO notification (with safety checks)
       try {
-        if (global.io && typeof global.io.emit === 'function') {
+        if (global.io && typeof global.io.emit === "function") {
           const orderData = {
             _id: savedOrder._id,
             orderNumber: savedOrder.orderNumber,
             customerName: savedOrder.customerName,
             customerPhone: savedOrder.customerPhone,
             customerAddress: savedOrder.customerAddress,
-            items: savedOrder.items.map(item => ({
+            items: savedOrder.items.map((item) => ({
               name: item.name,
               price: item.price,
               quantity: item.quantity,
-              specialInstructions: item.specialInstructions
+              specialInstructions: item.specialInstructions,
             })),
             status: savedOrder.status,
             paymentStatus: savedOrder.paymentStatus,
             paymentMethod: savedOrder.paymentMethod,
             createdAt: savedOrder.createdAt,
             totalAmount: savedOrder.totalAmount,
-            timestamp: savedOrder.createdAt
+            timestamp: savedOrder.createdAt,
           };
 
           const restaurantOwner = savedOrder.restaurant?.owner;
-          
+
           if (restaurantOwner) {
-            global.io.to(`restaurant_${payment.restaurant}`).emit("newOrder", orderData);
-            global.io.to(`restaurant_owner_${restaurantOwner}`).emit("newOrder", orderData);
+            global.io
+              .to(`restaurant_${payment.restaurant}`)
+              .emit("newOrder", orderData);
+            global.io
+              .to(`restaurant_owner_${restaurantOwner}`)
+              .emit("newOrder", orderData);
           }
-          
-          global.io.to('admin').emit("newOrder", orderData);
+
+          global.io.to("admin").emit("newOrder", orderData);
         }
       } catch (socketError) {
-        console.error('Socket.IO error:', socketError);
+        console.error("Socket.IO error:", socketError);
         // Don't fail the entire request for socket errors
       }
 
       res.json({
         success: true,
-        message: 'Payment verified and order created successfully',
+        message: "Payment verified and order created successfully",
         data: {
           order: {
             _id: savedOrder._id,
@@ -319,24 +366,26 @@ class PaymentController {
             paymentStatus: savedOrder.paymentStatus,
             totalAmount: savedOrder.totalAmount,
             createdAt: savedOrder.createdAt,
-            estimatedDeliveryTime: savedOrder.estimatedDeliveryTime
+            estimatedDeliveryTime: savedOrder.estimatedDeliveryTime,
           },
           payment: {
             id: payment._id,
             status: payment.status,
             amount: payment.amount,
             paidAt: payment.paidAt,
-            razorpayPaymentId: payment.razorpayPaymentId
-          }
-        }
+            razorpayPaymentId: payment.razorpayPaymentId,
+          },
+        },
       });
-
     } catch (error) {
-      console.error('Verify payment error:', error);
+      console.error("Verify payment error:", error);
       res.status(500).json({
         success: false,
-        message: 'Payment verification failed',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Payment verification failed",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -348,28 +397,31 @@ class PaymentController {
       if (!paymentId) {
         return res.status(400).json({
           success: false,
-          message: 'Payment ID is required'
+          message: "Payment ID is required",
         });
       }
 
       const payment = await Payment.findById(paymentId);
-      if (payment && payment.status !== 'completed') {
-        payment.status = 'failed';
-        payment.failureReason = error?.description || error?.reason || 'Payment failed';
+      if (payment && payment.status !== "completed") {
+        payment.status = "failed";
+        payment.failureReason =
+          error?.description || error?.reason || "Payment failed";
         await payment.save();
       }
 
       res.json({
         success: true,
-        message: 'Payment failure recorded'
+        message: "Payment failure recorded",
       });
-
     } catch (error) {
-      console.error('Handle payment failure error:', error);
+      console.error("Handle payment failure error:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to handle payment failure',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to handle payment failure",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -381,52 +433,54 @@ class PaymentController {
       if (!paymentId) {
         return res.status(400).json({
           success: false,
-          message: 'Payment ID is required'
+          message: "Payment ID is required",
         });
       }
 
       const payment = await Payment.findById(paymentId)
-        .populate('user', 'name email')
-        .populate('restaurant', 'name')
-        .populate('order', 'orderNumber status');
+        .populate("user", "name email")
+        .populate("restaurant", "name")
+        .populate("order", "orderNumber status");
 
       if (!payment) {
         return res.status(404).json({
           success: false,
-          message: 'Payment not found'
+          message: "Payment not found",
         });
       }
 
       res.json({
         success: true,
-        data: payment
+        data: payment,
       });
-
     } catch (error) {
-      console.error('Get payment status error:', error);
+      console.error("Get payment status error:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to get payment status',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to get payment status",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
 
   static async handleWebhook(req, res) {
     try {
-      const webhookSignature = req.headers['x-razorpay-signature'];
+      const webhookSignature = req.headers["x-razorpay-signature"];
       const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
       if (webhookSecret && webhookSignature) {
         const expectedSignature = crypto
-          .createHmac('sha256', webhookSecret)
+          .createHmac("sha256", webhookSecret)
           .update(JSON.stringify(req.body))
-          .digest('hex');
+          .digest("hex");
 
         if (expectedSignature !== webhookSignature) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid webhook signature'
+            message: "Invalid webhook signature",
           });
         }
       }
@@ -437,44 +491,47 @@ class PaymentController {
       if (!paymentEntity) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid webhook payload'
+          message: "Invalid webhook payload",
         });
       }
 
       // Handle different webhook events
       switch (event) {
-        case 'payment.captured':
+        case "payment.captured":
           await Payment.findOneAndUpdate(
             { razorpayPaymentId: paymentEntity.id },
-            { 
-              status: 'completed',
-              paidAt: new Date(paymentEntity.created_at * 1000)
+            {
+              status: "completed",
+              paidAt: new Date(paymentEntity.created_at * 1000),
             }
           );
           break;
 
-        case 'payment.failed':
+        case "payment.failed":
           await Payment.findOneAndUpdate(
             { razorpayOrderId: paymentEntity.order_id },
-            { 
-              status: 'failed',
-              failureReason: paymentEntity.error_description || 'Payment failed'
+            {
+              status: "failed",
+              failureReason:
+                paymentEntity.error_description || "Payment failed",
             }
           );
           break;
 
         default:
-          console.log('Unhandled webhook event:', event);
+          console.log("Unhandled webhook event:", event);
       }
 
       res.json({ success: true });
-
     } catch (error) {
-      console.error('Webhook error:', error);
+      console.error("Webhook error:", error);
       res.status(500).json({
         success: false,
-        message: 'Webhook processing failed',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Webhook processing failed",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }

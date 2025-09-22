@@ -44,7 +44,7 @@ const restaurantSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    code: { type: String, required: true, unique: true },
+    restaurantCode: { type: String, required: true, unique: true },
   },
   {
     timestamps: true,

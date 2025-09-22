@@ -15,7 +15,7 @@ const { auth, authorize } = require('../middlewares/auth');
 router.use(auth);
 
 // Customer routes - only customers can create orders
-router.post('/', authorize('customer'), validateOrder, createOrder);
+// router.post('/', authorize('customer'), validateOrder, createOrder);
 
 // Routes accessible by all authenticated users with role-based filtering in controller
 router.get('/', getAllOrders);

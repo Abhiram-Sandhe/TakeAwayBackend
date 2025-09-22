@@ -161,124 +161,124 @@ const closeOrderChangeStream = () => {
 };
 
 // Create new order (Customer only)
-const createOrder = async (req, res) => {
-  try {
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Please log in to place an order.",
-      });
-    }
+// const createOrder = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized. Please log in to place an order.",
+//       });
+//     }
 
-    const { customerPhone, customerAddress } = req.body;
-    const userId = req.user._id;
+//     const { customerPhone, customerAddress } = req.body;
+//     const userId = req.user._id;
 
-    // Get cart data instead of items from request body
-    const cart = await Cart.findOne({ user: userId, isActive: true })
-      .populate("items.food", "name price isAvailable")
-      .populate("items.restaurant", "name isOpen")
-      .populate("restaurant", "name isOpen restaurantCode"); // Added 'code' to populate
+//     // Get cart data instead of items from request body
+//     const cart = await Cart.findOne({ user: userId, isActive: true })
+//       .populate("items.food", "name price isAvailable")
+//       .populate("items.restaurant", "name isOpen")
+//       .populate("restaurant", "name isOpen restaurantCode"); // Added 'code' to populate
 
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cart is empty",
-      });
-    }
+//     if (!cart || cart.items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Cart is empty",
+//       });
+//     }
 
-    if (!cart.restaurant.isOpen) {
-      return res.status(400).json({
-        success: false,
-        message: "Restaurant is currently closed",
-      });
-    }
+//     if (!cart.restaurant.isOpen) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Restaurant is currently closed",
+//       });
+//     }
 
-    // Check if all items are still available
-    const unavailableItems = cart.items.filter(
-      (item) => !item.food.isAvailable
-    );
-    if (unavailableItems.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Some items in your cart are no longer available",
-        unavailableItems: unavailableItems.map((item) => item.food.name),
-      });
-    }
+//     // Check if all items are still available
+//     const unavailableItems = cart.items.filter(
+//       (item) => !item.food.isAvailable
+//     );
+//     if (unavailableItems.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Some items in your cart are no longer available",
+//         unavailableItems: unavailableItems.map((item) => item.food.name),
+//       });
+//     }
 
-    // Convert cart items to order items format
-    const orderItems = cart.items.map((item) => ({
-      foodId: item.food._id,
-      name: item.food.name,
-      price: item.price, // Use cart price (in case food price changed)
-      quantity: item.quantity,
-      specialInstructions: item.specialInstructions || "",
-    }));
+//     // Convert cart items to order items format
+//     const orderItems = cart.items.map((item) => ({
+//       foodId: item.food._id,
+//       name: item.food.name,
+//       price: item.price, // Use cart price (in case food price changed)
+//       quantity: item.quantity,
+//       specialInstructions: item.specialInstructions || "",
+//     }));
 
-    // Get today's order count for this restaurant to generate order number
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+//     // Get today's order count for this restaurant to generate order number
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const todayOrderCount = await Order.countDocuments({
-      restaurant: cart.restaurant._id,
-      createdAt: {
-        $gte: today,
-        $lt: tomorrow
-      }
-    });
+//     const todayOrderCount = await Order.countDocuments({
+//       restaurant: cart.restaurant._id,
+//       createdAt: {
+//         $gte: today,
+//         $lt: tomorrow
+//       }
+//     });
 
-    const generateOrderNumber = (restaurantCode, count) => {
-      const today = new Date();
-      const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
-      const date = String(today.getDate()).padStart(2, "0");
-      const formattedCount = String(count + 1).padStart(2, "0"); // +1 because this will be the next order
+//     const generateOrderNumber = (restaurantCode, count) => {
+//       const today = new Date();
+//       const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+//       const date = String(today.getDate()).padStart(2, "0");
+//       const formattedCount = String(count + 1).padStart(2, "0"); // +1 because this will be the next order
 
-      return `${restaurantCode}${dayOfWeek}${date}${formattedCount}`;
-    };
+//       return `${restaurantCode}${dayOfWeek}${date}${formattedCount}`;
+//     };
 
-    const newOrder = new Order({
-      orderNumber: generateOrderNumber(cart.restaurant.code, todayOrderCount), // Using 'code' instead of 'restaurantCode'
-      customer: userId,
-      restaurant: cart.restaurant._id,
-      customerName: req.user.name,
-      customerPhone: customerPhone || req.user.phone,
-      customerAddress: customerAddress || req.user.address,
-      items: orderItems,
-      totalAmount: cart.totalAmount, // Use cart total
-    });
+//     const newOrder = new Order({
+//       orderNumber: generateOrderNumber(cart.restaurant.code, todayOrderCount), // Using 'code' instead of 'restaurantCode'
+//       customer: userId,
+//       restaurant: cart.restaurant._id,
+//       customerName: req.user.name,
+//       customerPhone: customerPhone || req.user.phone,
+//       customerAddress: customerAddress || req.user.address,
+//       items: orderItems,
+//       totalAmount: cart.totalAmount, // Use cart total
+//     });
 
-    const savedOrder = await newOrder.save();
+//     const savedOrder = await newOrder.save();
 
-    // Populate order details for response
-    await savedOrder.populate([
-      { path: "customer", select: "name email phone" },
-      { path: "restaurant", select: "name address phone owner" },
-      { path: "items.foodId", select: "name category image" },
-    ]);
+//     // Populate order details for response
+//     await savedOrder.populate([
+//       { path: "customer", select: "name email phone" },
+//       { path: "restaurant", select: "name address phone owner" },
+//       { path: "items.foodId", select: "name category image" },
+//     ]);
 
-    // Clear cart after successful order
-    cart.items = [];
-    cart.restaurant = null;
-    await cart.save();
+//     // Clear cart after successful order
+//     cart.items = [];
+//     cart.restaurant = null;
+//     await cart.save();
 
-    // Note: Real-time notifications are now handled by the change stream
-    // The change stream will automatically detect the new order and emit events
+//     // Note: Real-time notifications are now handled by the change stream
+//     // The change stream will automatically detect the new order and emit events
 
-    res.status(201).json({
-      success: true,
-      message: "Order created successfully",
-      data: savedOrder,
-    });
-  } catch (error) {
-    console.error("Create order error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create order",
-      error: error.message,
-    });
-  }
-};
+//     res.status(201).json({
+//       success: true,
+//       message: "Order created successfully",
+//       data: savedOrder,
+//     });
+//   } catch (error) {
+//     console.error("Create order error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to create order",
+//       error: error.message,
+//     });
+//   }
+// };
 
 // Get all orders with role-based access
 const getAllOrders = async (req, res) => {
@@ -651,7 +651,7 @@ const cancelOrder = async (req, res) => {
 };
 
 module.exports = {
-  createOrder,
+  //createOrder,
   getAllOrders,
   getOrder,
   updateOrderStatus,
