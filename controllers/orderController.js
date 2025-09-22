@@ -650,6 +650,47 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+
+const getUserOrders = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const orders = await Order.find({ customer: userId })
+      .populate("restaurant", "name address phone image")
+      .populate("items.foodId", "name category image")
+      .populate("paymentId", "razorpayPaymentId razorpayOrderId")
+      .sort({ createdAt: -1 });
+
+    // Format the orders data for frontend
+    const formattedOrders = orders.map(order => ({
+      id: order._id,
+      orderNumber: order.orderNumber,
+      date: order.createdAt,
+      restaurant: order.restaurant?.name || "Unknown Restaurant",
+      items: order.items.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      })),
+      totalAmount: order.totalAmount,
+      transactionId: order.paymentId.razorpayPaymentId
+    }));
+
+    res.json({
+      success: true,
+      data: formattedOrders
+    });
+
+  } catch (error) {
+    console.error("Get user orders error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch orders",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   //createOrder,
   getAllOrders,
@@ -659,4 +700,5 @@ module.exports = {
   cancelOrder,
   initializeOrderChangeStream,
   closeOrderChangeStream,
+  getUserOrders
 };

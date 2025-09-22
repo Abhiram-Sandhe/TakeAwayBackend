@@ -1213,7 +1213,72 @@ const verifyToken = async (req, res) => {
     res.status(401).json({ message: 'Token verification failed' });
   }
 };
-module.exports = { register, verifyOTP, resendOTP, login, logout, forgotPassword, resetPassword , verifyToken, getCurrentUser };
+
+
+
+//user Profile
+
+
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password -tokenBlacklist -resetPasswordToken -resetPasswordExpire');
+    res.status(200).json({
+      message: 'Profile retrieved successfully',
+      user
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Update user profile
+const updateProfile = async (req, res) => {
+  try {
+    const { name, phone, address } = req.body;
+    const userId = req.user._id;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { name, phone, address },
+      { new: true, runValidators: true }
+    ).select('-password -tokenBlacklist -resetPasswordToken -resetPasswordExpire');
+
+    res.status(200).json({
+      message: 'Profile updated successfully',
+      user: updatedUser
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Change password
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword; // Pre-save middleware will hash it
+    await user.save();
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+module.exports = { register, verifyOTP, resendOTP, login, logout, forgotPassword, resetPassword , verifyToken, getCurrentUser,
+  //user profile functions
+  getProfile,
+  updateProfile,
+  changePassword,
+};
 
 
 

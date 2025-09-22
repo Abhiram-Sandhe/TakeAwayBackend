@@ -6,7 +6,8 @@ const {
   getOrder,
   updateOrderStatus,
   getOrderStats,
-  cancelOrder
+  cancelOrder,
+  getUserOrders
 } = require('../controllers/orderController');
 const { validateOrder, validateOrderStatus } = require('../middlewares/validation');
 const { auth, authorize } = require('../middlewares/auth');
@@ -18,7 +19,7 @@ router.use(auth);
 // router.post('/', authorize('customer'), validateOrder, createOrder);
 
 // Routes accessible by all authenticated users with role-based filtering in controller
-router.get('/', getAllOrders);
+router.get('/', auth, authorize('restaurant'), getAllOrders);
 // router.get('/stats/dashboard', getOrderStats);
 router.get('/:id', getOrder);
 
@@ -27,6 +28,8 @@ router.patch('/:id/status', authorize('restaurant', 'admin'), validateOrderStatu
 
 // Cancel order - customers can cancel their own, restaurant/admin can cancel any
 router.patch('/:id/cancel', cancelOrder);
+
+router.get('/userOrders/:id', auth, getUserOrders); 
 
 module.exports = router;
 

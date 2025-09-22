@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login, logout, forgotPassword, resetPassword, verifyOTP, resendOTP, verifyToken, getCurrentUser} = require('../controllers/authController.js');
+const { register, login, logout, forgotPassword, resetPassword, verifyOTP, resendOTP, verifyToken, getCurrentUser, getProfile, updateProfile, changePassword} = require('../controllers/authController.js');
 const {auth} = require('../middlewares/auth.js')
 const router = express.Router();
 
@@ -13,6 +13,10 @@ router.post('/forgot-password', forgotPassword);
 router.get('/verify-token', auth, verifyToken);
 router.get('/me', auth, getCurrentUser);
 
+//user profile 
+router.get('/profile', auth, getProfile);
+router.put('/profile', auth, updateProfile);
+router.put('/change-password', auth, changePassword);
 
 router.get('/reset-password/:token', async (req, res) => {
   try {
