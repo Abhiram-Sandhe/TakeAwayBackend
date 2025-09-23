@@ -423,18 +423,13 @@ const updateOrderStatus = async (req, res) => {
     const userRole = req.user.role;
     const userId = req.user._id;
 
-    const validStatuses = [
-      "pending",
-      "confirmed",
-      "preparing",
-      "ready",
-      "delivered",
-      "cancelled",
-    ];
+    // Updated valid statuses to match new model
+    const validStatuses = ["new", "delivered"];
+    
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status",
+        message: "Invalid status. Valid statuses are: new, delivered",
       });
     }
 
@@ -650,7 +645,6 @@ const cancelOrder = async (req, res) => {
   }
 };
 
-
 const getUserOrders = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -662,31 +656,103 @@ const getUserOrders = async (req, res) => {
       .sort({ createdAt: -1 });
 
     // Format the orders data for frontend
-    const formattedOrders = orders.map(order => ({
+    const formattedOrders = orders.map((order) => ({
       id: order._id,
       orderNumber: order.orderNumber,
       date: order.createdAt,
       restaurant: order.restaurant?.name || "Unknown Restaurant",
-      items: order.items.map(item => ({
+      items: order.items.map((item) => ({
         name: item.name,
         price: item.price,
-        quantity: item.quantity
+        quantity: item.quantity,
       })),
       totalAmount: order.totalAmount,
-      transactionId: order.paymentId.razorpayPaymentId
+      transactionId: order.paymentId.razorpayPaymentId,
     }));
 
     res.json({
       success: true,
-      data: formattedOrders
+      data: formattedOrders,
     });
-
   } catch (error) {
     console.error("Get user orders error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch orders",
-      error: error.message
+      error: error.message,
+    });
+  }
+};
+
+const getTransactionDetails = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    // Build filter
+    let filter = {};
+    if (userRole === "customer") {
+      filter.customer = userId;
+    } else if (userRole === "restaurant") {
+      const Restaurant = require("../models/Restaurant");
+      const restaurants = await Restaurant.find({ owner: userId }).select("_id");
+      const restaurantIds = restaurants.map(r => r._id);
+      filter.restaurant = { $in: restaurantIds };
+    }
+
+    // Fetch orders
+    const orders = await Order.find(filter)
+      .populate("paymentId", "razorpayPaymentId razorpayOrderId")
+      .sort({ createdAt: -1 });
+    if (!orders.length) {
+      return res.json({ success: true, data: [], count: 0, monthlyRevenue: 0 });
+    }
+
+    const transactionDetails = orders.map(order => {
+      const itemCount = order.items?.reduce(
+        (total, item) => total + item.quantity,
+        0
+      ) || 0;
+
+      return {
+        orderId: order.orderNumber,
+        transactionId: order.paymentId?.razorpayPaymentId || null,
+        itemCount,
+        total: order.totalAmount,
+        orderTime: order.createdAt,
+      };
+    });
+
+    // Monthly revenue calculation
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthlyRevenue = orders
+      .filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return (
+          orderDate.getMonth() === currentMonth &&
+          orderDate.getFullYear() === currentYear 
+          // && order.status === "delivered"
+        );
+      })
+      .reduce((total, order) => total + order.totalAmount, 0);
+
+    return res.json({
+      success: true,
+      data: transactionDetails,
+      count: transactionDetails.length,
+      monthlyRevenue,
+      currentMonth: `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`,
+    });
+
+  } catch (error) {
+    console.error("Error fetching transaction details:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch transaction details",
+      error: error.message,
     });
   }
 };
@@ -700,5 +766,6 @@ module.exports = {
   cancelOrder,
   initializeOrderChangeStream,
   closeOrderChangeStream,
-  getUserOrders
+  getUserOrders,
+  getTransactionDetails,
 };

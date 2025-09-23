@@ -7,7 +7,8 @@ const {
   updateOrderStatus,
   getOrderStats,
   cancelOrder,
-  getUserOrders
+  getUserOrders,
+  getTransactionDetails
 } = require('../controllers/orderController');
 const { validateOrder, validateOrderStatus } = require('../middlewares/validation');
 const { auth, authorize } = require('../middlewares/auth');
@@ -30,6 +31,8 @@ router.patch('/:id/status', authorize('restaurant', 'admin'), validateOrderStatu
 router.patch('/:id/cancel', cancelOrder);
 
 router.get('/userOrders/:id', auth, getUserOrders); 
+
+router.get('/transactions/:id', auth, authorize('restaurant'), getTransactionDetails); 
 
 module.exports = router;
 

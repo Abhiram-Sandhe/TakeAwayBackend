@@ -3,6 +3,107 @@ const crypto = require("crypto");
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Payment = require("../models/Payment");
+const { sendEmail } = require("../config/email");
+
+const generateOrderEmailHTML = (orderData, paymentData) => {
+  const itemsHTML = orderData.items
+    .map(
+      (item) => `
+    <tr>
+      <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${
+        item.quantity
+      }</td>
+      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">₹${item.price.toFixed(
+        2
+      )}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">₹${(
+        item.price * item.quantity
+      ).toFixed(2)}</td>
+    </tr>
+  `
+    )
+    .join("");
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Order Confirmation</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">Thank You for Your Order!</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your order has been confirmed and is being prepared</p>
+      </div>
+      
+      <div style="background: white; padding: 30px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;">
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+          <h2 style="margin: 0 0 15px 0; color: #495057;">Order Details</h2>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Order Number:</strong></span>
+            <span>#${orderData.orderNumber}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Restaurant:</strong></span>
+            <span>${orderData.restaurant?.name || "Restaurant Name"}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Order Date:</strong></span>
+            <span>${new Date(orderData.createdAt).toLocaleString()}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Payment Status:</strong></span>
+            <span style="color: #28a745; font-weight: bold;">PAID</span>
+          </div>
+        </div>
+
+        <h3 style="color: #495057; margin-bottom: 15px;">Items Ordered</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+          <thead>
+            <tr style="background: #e9ecef;">
+              <th style="padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6;">Item</th>
+              <th style="padding: 12px 8px; text-align: center; border-bottom: 2px solid #dee2e6;">Qty</th>
+              <th style="padding: 12px 8px; text-align: right; border-bottom: 2px solid #dee2e6;">Price</th>
+              <th style="padding: 12px 8px; text-align: right; border-bottom: 2px solid #dee2e6;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+        </table>
+
+        <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 18px; font-weight: bold; color: #155724;">Total Amount:</span>
+            <span style="font-size: 24px; font-weight: bold; color: #155724;">₹${orderData.totalAmount.toFixed(
+              2
+            )}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 14px; color: #155724;">
+            <span>Payment ID:</span>
+            <span>${paymentData.razorpayPaymentId}</span>
+          </div>
+        </div>
+
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 25px; border-left: 4px solid #ffc107;">
+          <h4 style="margin: 0 0 10px 0; color: #856404;">Delivery Information</h4>
+          <p style="margin: 0; color: #856404;">
+            <strong>Phone:</strong> ${orderData.customerPhone}<br>
+            <strong>Address:</strong> ${orderData.customerAddress}
+          </p>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+          <p style="margin: 0 0 10px 0; color: #6c757d;">Thank you for choosing us!</p>
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">You will receive updates about your order status via phone.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
@@ -277,13 +378,16 @@ class PaymentController {
 
       // Create order
       const newOrder = new Order({
-        orderNumber: generateOrderNumber(restaurant.restaurantCode, todayOrderCount),
+        orderNumber: generateOrderNumber(
+          restaurant.restaurantCode,
+          todayOrderCount
+        ),
         customer: payment.user,
         restaurant: payment.restaurant,
         customerName: user.name,
         customerPhone: cartData.customerPhone,
         customerAddress:
-        cartData.customerAddress || user.address || "Address not provided",
+          cartData.customerAddress || user.address || "Address not provided",
         items: cartData.items,
         totalAmount: cartData.totalAmount,
         paymentId: payment._id,
@@ -312,6 +416,26 @@ class PaymentController {
         cart.restaurant = null;
         cart.totalAmount = 0;
         await cart.save();
+      }
+
+      try {
+        if (user.email) {
+          const emailHTML = generateOrderEmailHTML(savedOrder, payment);
+          const emailSent = await sendEmail(
+            user.email,
+            `Order Confirmation - #${savedOrder.orderNumber}`,
+            emailHTML
+          );
+
+          if (emailSent) {
+            console.log(`Order confirmation email sent to ${user.email}`);
+          } else {
+            console.log(`Failed to send email to ${user.email}`);
+          }
+        }
+      } catch (emailError) {
+        console.error("Email sending error:", emailError);
+        // Don't fail the order creation if email fails
       }
 
       // Socket.IO notification (with safety checks)
