@@ -418,25 +418,25 @@ class PaymentController {
         await cart.save();
       }
 
-      // try {
-      //   if (user.email) {
-      //     const emailHTML = generateOrderEmailHTML(savedOrder, payment);
-      //     const emailSent = await sendEmail(
-      //       user.email,
-      //       `Order Confirmation - #${savedOrder.orderNumber}`,
-      //       emailHTML
-      //     );
+      try {
+        if (user.email) {
+          const emailHTML = generateOrderEmailHTML(savedOrder, payment);
+          const emailSent = await sendEmail(
+            user.email,
+            `Order Confirmation - #${savedOrder.orderNumber}`,
+            emailHTML
+          );
 
-      //     if (emailSent) {
-      //       console.log(`Order confirmation email sent to ${user.email}`);
-      //     } else {
-      //       console.log(`Failed to send email to ${user.email}`);
-      //     }
-      //   }
-      // } catch (emailError) {
-      //   console.error("Email sending error:", emailError);
-      //   // Don't fail the order creation if email fails
-      // }
+          if (emailSent) {
+            console.log(`Order confirmation email sent to ${user.email}`);
+          } else {
+            console.log(`Failed to send email to ${user.email}`);
+          }
+        }
+      } catch (emailError) {
+        console.error("Email sending error:", emailError);
+        // Don't fail the order creation if email fails
+      }
 
       // Socket.IO notification (with safety checks)
       try {
