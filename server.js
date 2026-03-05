@@ -28,7 +28,9 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://moccasin-dolphin-576064.hostingersite.com"
+  "https://moccasin-dolphin-576064.hostingersite.com",
+  "https://grabgrub.inflodox.com",
+  "http://localhost:8081"
 ];
 
 // Socket.IO CORS
